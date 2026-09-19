@@ -27,7 +27,8 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from .models import Category, CategoryGroup, SavingsAllocation
+from .categorization import DEFAULT_SEEDED_RULE_PRIORITY
+from .models import Category, CategoryGroup, CategoryRule, SavingsAllocation
 
 # (name, monthly_budget or None)
 NEEDS_CATEGORIES: list[tuple[str, Decimal | None]] = [
@@ -69,6 +70,29 @@ SAVINGS_ALLOCATIONS: list[tuple[str, Decimal, str | None]] = [
     ("Kalifa", Decimal("50"), None),
 ]
 
+# (pattern, target category name) - all evidence-backed from the user's
+# real BoA/Amex statements, not guesses. Money moving between the user's
+# own accounts (credit card payments, brokerage/investment debits) goes to
+# Transfer so it isn't double-counted as spend once the receiving side
+# (e.g. the Amex statement itself) is also imported.
+TRANSFER_RULE_PATTERNS = [
+    "AMERICAN EXPRESS",
+    "CITI CARD ONLINE",
+    "MOBILE PAYMENT - THANK YOU",  # Amex's own label for a payment received
+    "ONLINE/MOBILE RECURRING FROM CHK",  # BoA credit card receiving a payment
+    "ONLINE SCHEDULED PAYMENT TO ACCT#",  # BoA-to-BoA account payment
+    "ROBINHOOD",
+    "FID BKG SVC",
+]
+
+INCOME_RULE_PATTERNS = [
+    "APPLE INC.",
+]
+
+HOUSING_RULE_PATTERNS = [
+    "MTG PYMTS",  # mortgage payment, regardless of servicer name
+]
+
 
 def seed_categories(db: Session) -> None:
     if db.query(Category).count() > 0:
@@ -94,9 +118,45 @@ def seed_savings_allocations(db: Session) -> None:
     db.commit()
 
 
+def seed_category_rules(db: Session) -> None:
+    if db.query(CategoryRule).count() > 0:
+        return
+
+    transfer = db.query(Category).filter_by(name="Transfer").one()
+    income = db.query(Category).filter_by(name="Income").one()
+    housing = db.query(Category).filter_by(name="Housing").one()
+
+    for pattern in TRANSFER_RULE_PATTERNS:
+        db.add(
+            CategoryRule(
+                pattern=pattern,
+                category_id=transfer.id,
+                priority=DEFAULT_SEEDED_RULE_PRIORITY,
+            )
+        )
+    for pattern in INCOME_RULE_PATTERNS:
+        db.add(
+            CategoryRule(
+                pattern=pattern,
+                category_id=income.id,
+                priority=DEFAULT_SEEDED_RULE_PRIORITY,
+            )
+        )
+    for pattern in HOUSING_RULE_PATTERNS:
+        db.add(
+            CategoryRule(
+                pattern=pattern,
+                category_id=housing.id,
+                priority=DEFAULT_SEEDED_RULE_PRIORITY,
+            )
+        )
+    db.commit()
+
+
 def seed_all(db: Session) -> None:
     seed_categories(db)
     seed_savings_allocations(db)
+    seed_category_rules(db)
 
 
 if __name__ == "__main__":
