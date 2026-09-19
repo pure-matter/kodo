@@ -1,0 +1,58 @@
+/* Design tokens for the "sky" theme: pale blue page (the sky), white
+ * rounded cards (the clouds). Chart colors are validated - see
+ * dataviz skill's palette check output referenced in the design discussion
+ * - not eyeballed. Light mode only for now. */
+
+:root {
+  color-scheme: light;
+
+  /* Sky / surfaces */
+  --page-bg: #eaf6ff;
+  --card-bg: #ffffff;
+  --card-shadow: 0 4px 20px rgba(46, 144, 217, 0.12);
+  --card-radius: 16px;
+  --border-hairline: rgba(20, 33, 61, 0.08);
+
+  /* Ink */
+  --text-primary: #14213d;
+  --text-secondary: #5b6b82;
+  --text-muted: #8a97ab;
+
+  /* Brand (reserved from data/categorical use) */
+  --brand: #2a78d6;
+  --brand-hover: #1c5cab;
+  --brand-tint: #eaf6ff;
+
+  /* Status (fixed - never reused for category identity) */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  /* Categorical (7 slots; blue is reserved for brand/chrome, not data) */
+  --series-orange: #eb6834;
+  --series-aqua: #1baf7a;
+  --series-yellow: #eda100;
+  --series-magenta: #e87ba4;
+  --series-green: #008300;
+  --series-violet: #4a3aa7;
+  --series-red: #e34948;
+
+  /* Diverging pair (assets vs liabilities) */
+  --diverging-positive: #2a78d6;
+  --diverging-negative: #d03b3b;
+
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--page-bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}

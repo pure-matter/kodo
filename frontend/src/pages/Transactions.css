@@ -1,0 +1,64 @@
+.filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.transactions-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.transactions-table th {
+  text-align: left;
+  padding: 8px;
+  color: var(--text-muted);
+  font-weight: 500;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.transactions-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border-hairline);
+  color: var(--text-primary);
+}
+
+.description-cell {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.amount-cell {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--brand);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.rule-row {
+  background: var(--brand-tint);
+}
+
+.rule-row span {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-right: 8px;
+}
+
+.rule-row input {
+  width: 320px;
+  margin-right: 8px;
+}

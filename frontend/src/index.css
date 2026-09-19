@@ -1,0 +1,28 @@
+h1,
+h2 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stat-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
