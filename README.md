@@ -1,0 +1,2 @@
+# kodo
+Personal finance tracker
