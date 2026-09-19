@@ -79,6 +79,7 @@ TRANSFER_RULE_PATTERNS = [
     "AMERICAN EXPRESS",
     "CITI CARD ONLINE",
     "MOBILE PAYMENT - THANK YOU",  # Amex's own label for a payment received
+    "AUTOPAY PAYMENT - THANK YOU",  # Amex's label for an autopay-scheduled payment
     "ONLINE/MOBILE RECURRING FROM CHK",  # BoA credit card receiving a payment
     "ONLINE SCHEDULED PAYMENT TO ACCT#",  # BoA-to-BoA account payment
     "ROBINHOOD",

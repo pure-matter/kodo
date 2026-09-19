@@ -5,7 +5,6 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    Boolean,
     Date,
     DateTime,
     Enum,
@@ -45,9 +44,10 @@ class Account(Base):
     name: Mapped[str] = mapped_column(String(120))
     institution: Mapped[str] = mapped_column(String(120))
     type: Mapped[AccountType] = mapped_column(Enum(AccountType))
-    # True for accounts with no CSV/XLSX parser (GTBank, MSU, etc.) whose
-    # transactions are entered by hand through the UI instead of imported.
-    is_manual: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Key into the ingestion parser registry (e.g. "boa_checking", "amex").
+    # None means this account has no parser (GTBank, MSU, investments,
+    # loans) and its transactions/balances are entered by hand instead.
+    parser_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="account")
