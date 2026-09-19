@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .routers import (
     accounts,
@@ -36,3 +37,15 @@ app.include_router(reports.router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """An unhandled exception (as opposed to a raised HTTPException) skips
+    Starlette's normal exception-handling path and reaches ServerErrorMiddleware
+    directly, which doesn't run CORSMiddleware - the browser then sees a
+    response with no CORS headers and reports a generic "Failed to fetch"
+    instead of the actual error. Registering a handler here keeps the
+    response inside the normal middleware stack so the real error reaches
+    the frontend instead of being masked as a network failure."""
+    return JSONResponse(status_code=500, content={"detail": str(exc)})

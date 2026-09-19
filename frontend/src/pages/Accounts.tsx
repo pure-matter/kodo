@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { Account, AccountType } from "../api/types";
+import type { Account, AccountType, Category } from "../api/types";
 import { Card } from "../components/Card";
 import "./Accounts.css";
 
@@ -12,6 +12,8 @@ const PARSER_OPTIONS = [
 ];
 
 const ACCOUNT_TYPES: AccountType[] = ["checking", "savings", "credit", "loan", "investment"];
+
+const today = () => new Date().toISOString().slice(0, 10);
 
 function ImportButton({ account, onImported }: { account: Account; onImported: () => void }) {
   const [status, setStatus] = useState<string | null>(null);
@@ -46,19 +48,118 @@ function ImportButton({ account, onImported }: { account: Account; onImported: (
   );
 }
 
+function ManualTransactionForm({ account, categories }: { account: Account; categories: Category[] }) {
+  const [date, setDate] = useState(today());
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await api.transactions.create({
+      account_id: account.id,
+      date,
+      description,
+      amount,
+      category_id: categoryId ? Number(categoryId) : null,
+    });
+    setDescription("");
+    setAmount("");
+    setCategoryId("");
+    setStatus("Added.");
+  }
+
+  return (
+    <form className="manage-form" onSubmit={handleSubmit}>
+      <span className="manage-form-title">Add a transaction</span>
+      <div className="manage-form-row">
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+        <input
+          placeholder="Description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          required
+        />
+        <input
+          placeholder="Amount (negative = spend)"
+          type="number"
+          step="0.01"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          required
+        />
+        <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+          <option value="">Uncategorized</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <button type="submit">Add</button>
+      </div>
+      {status && <span className="manage-form-status">{status}</span>}
+    </form>
+  );
+}
+
+function BalanceSnapshotForm({ account }: { account: Account }) {
+  const [date, setDate] = useState(today());
+  const [balance, setBalance] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await api.netWorth.addBalanceSnapshot(account.id, { date, balance });
+    setStatus(`Logged $${balance} as of ${date}.`);
+    setBalance("");
+  }
+
+  const hint =
+    account.type === "credit" || account.type === "loan"
+      ? "amount owed, as a positive number"
+      : "current balance";
+
+  return (
+    <form className="manage-form" onSubmit={handleSubmit}>
+      <span className="manage-form-title">Log a balance ({hint}) - feeds Net Worth on the dashboard</span>
+      <div className="manage-form-row">
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+        <input
+          placeholder="Balance"
+          type="number"
+          step="0.01"
+          min="0"
+          value={balance}
+          onChange={(e) => setBalance(e.target.value)}
+          required
+        />
+        <button type="submit">Log balance</button>
+      </div>
+      {status && <span className="manage-form-status">{status}</span>}
+    </form>
+  );
+}
+
 export function Accounts() {
   const [accounts, setAccounts] = useState<Account[] | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [institution, setInstitution] = useState("");
   const [type, setType] = useState<AccountType>("checking");
   const [parserType, setParserType] = useState("");
+  const [managingId, setManagingId] = useState<number | null>(null);
 
   function refresh() {
     api.accounts.list().then(setAccounts).catch((err) => setError(String(err)));
   }
 
-  useEffect(refresh, []);
+  useEffect(() => {
+    refresh();
+    api.categories.list().then(setCategories).catch((err) => setError(String(err)));
+  }, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -116,18 +217,37 @@ export function Accounts() {
                 <th>Institution</th>
                 <th>Type</th>
                 <th>Import statement</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {accounts.map((a) => (
-                <tr key={a.id}>
-                  <td>{a.name}</td>
-                  <td>{a.institution}</td>
-                  <td>{a.type}</td>
-                  <td>
-                    <ImportButton account={a} onImported={refresh} />
-                  </td>
-                </tr>
+                <Fragment key={a.id}>
+                  <tr>
+                    <td>{a.name}</td>
+                    <td>{a.institution}</td>
+                    <td>{a.type}</td>
+                    <td>
+                      <ImportButton account={a} onImported={refresh} />
+                    </td>
+                    <td>
+                      <button
+                        className="link-button"
+                        onClick={() => setManagingId(managingId === a.id ? null : a.id)}
+                      >
+                        {managingId === a.id ? "close" : "manage"}
+                      </button>
+                    </td>
+                  </tr>
+                  {managingId === a.id && (
+                    <tr>
+                      <td colSpan={5} className="manage-row">
+                        {!a.parser_type && <ManualTransactionForm account={a} categories={categories} />}
+                        <BalanceSnapshotForm account={a} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>

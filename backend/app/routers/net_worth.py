@@ -14,17 +14,25 @@ def get_net_worth(db: Session = Depends(get_db)):
     return compute_net_worth(db)
 
 
-@router.post(
-    "/accounts/{account_id}/balance-snapshots",
-    response_model=BalanceSnapshotOut,
-    status_code=201,
-)
+@router.post("/accounts/{account_id}/balance-snapshots", response_model=BalanceSnapshotOut)
 def create_balance_snapshot(
     account_id: int, payload: BalanceSnapshotCreate, db: Session = Depends(get_db)
 ):
+    """Logging a balance for a date that already has one updates it in
+    place rather than erroring - re-checking/correcting today's balance is
+    a normal thing to do, not a conflict."""
     account = db.get(Account, account_id)
     if account is None:
         raise HTTPException(404, "Account not found")
+
+    existing = (
+        db.query(BalanceSnapshot).filter_by(account_id=account_id, date=payload.date).first()
+    )
+    if existing:
+        existing.balance = payload.balance
+        db.commit()
+        db.refresh(existing)
+        return existing
 
     snapshot = BalanceSnapshot(account_id=account_id, **payload.model_dump())
     db.add(snapshot)

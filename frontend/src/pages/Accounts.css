@@ -60,3 +60,65 @@
   color: var(--text-muted);
   font-size: 13px;
 }
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--brand);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.manage-row {
+  background: var(--brand-tint);
+}
+
+.manage-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+}
+
+.manage-form + .manage-form {
+  border-top: 1px solid var(--border-hairline);
+  margin-top: 8px;
+  padding-top: 12px;
+}
+
+.manage-form-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.manage-form-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.manage-form-row input,
+.manage-form-row select {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-hairline);
+  font-size: 13px;
+}
+
+.manage-form-row button {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  background: var(--brand);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.manage-form-status {
+  font-size: 12px;
+  color: var(--status-good);
+}

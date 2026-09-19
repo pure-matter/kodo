@@ -230,3 +230,27 @@ def test_net_worth_from_balance_snapshots(client):
     assert Decimal(net_worth["assets"]) == Decimal("2000.00")
     assert Decimal(net_worth["liabilities"]) == Decimal("500.00")
     assert Decimal(net_worth["net_worth"]) == Decimal("1500.00")
+
+
+def test_logging_a_second_balance_same_day_updates_instead_of_erroring(client):
+    account = client.post(
+        "/accounts",
+        json={"name": "Fidelity", "institution": "Fidelity", "type": "investment"},
+    ).json()
+
+    first = client.post(
+        f"/accounts/{account['id']}/balance-snapshots",
+        json={"date": "2026-09-19", "balance": "1000.00"},
+    )
+    assert first.status_code == 200
+
+    second = client.post(
+        f"/accounts/{account['id']}/balance-snapshots",
+        json={"date": "2026-09-19", "balance": "1050.00"},
+    )
+    assert second.status_code == 200
+    assert Decimal(second.json()["balance"]) == Decimal("1050.00")
+
+    net_worth = client.get("/net-worth").json()
+    # Only the updated value counts - no duplicate row inflating assets
+    assert Decimal(net_worth["assets"]) == Decimal("1050.00")
