@@ -31,6 +31,14 @@ def client():
     Uses StaticPool (one shared connection) rather than db_session's engine,
     because TestClient runs the app in a separate thread and raw sqlite3
     connections can't cross threads.
+
+    Deliberately NOT used as a context manager (`with TestClient(app)`):
+    that would trigger app.main's lifespan, which runs real Alembic
+    migrations and seeding against the actual kodo.db file via SessionLocal
+    - bypassing this fixture's get_db override entirely, since lifespan
+    isn't part of the dependency-injection system. This fixture already
+    does its own create_all + seed against the in-memory db, so the app's
+    startup routine is neither needed nor safe to run here.
     """
     engine = create_engine(
         "sqlite:///:memory:",
@@ -51,6 +59,6 @@ def client():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
+    test_client = TestClient(app)
+    yield test_client
     app.dependency_overrides.clear()

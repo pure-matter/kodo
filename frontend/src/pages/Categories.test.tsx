@@ -9,6 +9,7 @@ vi.mock("../api/client", () => ({
     categories: { list: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() },
     categoryRules: { list: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() },
     reports: { budgetSummary: vi.fn(), monthlyHistory: vi.fn(), archiveMonth: vi.fn() },
+    savings: { progress: vi.fn() },
   },
 }));
 
@@ -33,6 +34,7 @@ beforeEach(() => {
   vi.mocked(api.categoryRules.list).mockResolvedValue(RULES);
   vi.mocked(api.reports.budgetSummary).mockResolvedValue([]);
   vi.mocked(api.reports.monthlyHistory).mockResolvedValue([]);
+  vi.mocked(api.savings.progress).mockResolvedValue([]);
   vi.spyOn(window, "confirm").mockReturnValue(true);
 });
 
@@ -161,5 +163,25 @@ describe("Categories page", () => {
     await user.click(screen.getByText("Archive & clear month"));
 
     expect(api.reports.archiveMonth).not.toHaveBeenCalled();
+  });
+
+  it("toggling the segmented control switches the active view", async () => {
+    vi.mocked(api.reports.budgetSummary).mockResolvedValue([
+      { category_id: 1, category_name: "Groceries", group: "needs", budgeted: "400", spent: "150" },
+    ]);
+    const user = userEvent.setup();
+    render(<Categories />);
+
+    await screen.findByRole("heading", { name: "Needs" });
+    const byCategoryButton = screen.getByText("By category");
+    const byBucketButton = screen.getByText("By bucket");
+
+    expect(byCategoryButton).toHaveClass("segmented-active");
+    expect(byBucketButton).not.toHaveClass("segmented-active");
+
+    await user.click(byBucketButton);
+
+    expect(byBucketButton).toHaveClass("segmented-active");
+    expect(byCategoryButton).not.toHaveClass("segmented-active");
   });
 });

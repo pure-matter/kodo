@@ -109,3 +109,27 @@
   color: var(--text-muted);
   font-size: 13px;
 }
+
+.segmented-control {
+  display: inline-flex;
+  background: var(--brand-tint);
+  border-radius: 999px;
+  padding: 3px;
+  margin-bottom: 16px;
+}
+
+.segmented-control button {
+  border: none;
+  background: none;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.segmented-control button.segmented-active {
+  background: var(--brand);
+  color: white;
+}

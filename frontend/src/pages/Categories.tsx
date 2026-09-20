@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import type { Category, CategoryGroup, CategoryRule, MonthlyHistoryItem } from "../api/types";
 import { Card } from "../components/Card";
 import { STATUS_COLORS, getBudgetStatus } from "../lib/budgetStatus";
+import { aggregateByBucket, toCategoryRows, type SpendRow } from "../lib/spendAggregation";
 import "./Categories.css";
 
 const GROUPS: CategoryGroup[] = ["needs", "wants", "income", "transfer"];
@@ -221,41 +222,59 @@ function AddRuleForm({ categories, onCreated }: { categories: Category[]; onCrea
   );
 }
 
-function SpendChart({ categories }: { categories: Category[] }) {
-  const [spend, setSpend] = useState<{ name: string; spent: number; budgeted: number | null }[] | null>(null);
+type ChartView = "category" | "bucket";
+
+function SpendChart() {
+  const [byCategory, setByCategory] = useState<SpendRow[] | null>(null);
+  const [byBucket, setByBucket] = useState<SpendRow[] | null>(null);
+  const [view, setView] = useState<ChartView>("category");
 
   useEffect(() => {
     const now = new Date();
-    api.reports.budgetSummary(now.getFullYear(), now.getMonth() + 1).then((rows) => {
-      const data = rows
-        .map((r) => ({
-          name: r.category_name,
-          spent: Number(r.spent),
-          budgeted: r.budgeted !== null ? Number(r.budgeted) : null,
-        }))
-        .filter((r) => r.spent > 0)
-        .sort((a, b) => b.spent - a.spent);
-      setSpend(data);
+    Promise.all([
+      api.reports.budgetSummary(now.getFullYear(), now.getMonth() + 1),
+      api.savings.progress(now.getFullYear(), now.getMonth() + 1),
+    ]).then(([budget, savings]) => {
+      setByCategory(toCategoryRows(budget));
+      setByBucket(aggregateByBucket(budget, savings));
     });
-  }, [categories]);
+  }, []);
 
-  if (!spend) return <span>Loading…</span>;
-  if (spend.length === 0) return <span className="muted">No spending recorded this month yet.</span>;
+  const data = view === "category" ? byCategory : byBucket;
 
   return (
-    <ResponsiveContainer width="100%" height={Math.max(spend.length * 36, 120)}>
-      <BarChart data={spend} layout="vertical" margin={{ left: 24, right: 24 }}>
-        <CartesianGrid horizontal={false} stroke="var(--border-hairline)" />
-        <XAxis type="number" tickFormatter={(v) => currency(v)} tick={{ fontSize: 12 }} />
-        <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12 }} />
-        <Tooltip formatter={(value) => currency(Number(value))} />
-        <Bar dataKey="spent" radius={4}>
-          {spend.map((row) => (
-            <Cell key={row.name} fill={STATUS_COLORS[getBudgetStatus(row.spent, row.budgeted)]} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <>
+      <div className="segmented-control">
+        <button
+          className={view === "category" ? "segmented-active" : ""}
+          onClick={() => setView("category")}
+        >
+          By category
+        </button>
+        <button className={view === "bucket" ? "segmented-active" : ""} onClick={() => setView("bucket")}>
+          By bucket
+        </button>
+      </div>
+      {!data ? (
+        <span>Loading…</span>
+      ) : data.length === 0 ? (
+        <span className="muted">No spending recorded this month yet.</span>
+      ) : (
+        <ResponsiveContainer width="100%" height={Math.max(data.length * 36, 120)}>
+          <BarChart data={data} layout="vertical" margin={{ left: 24, right: 24 }}>
+            <CartesianGrid horizontal={false} stroke="var(--border-hairline)" />
+            <XAxis type="number" tickFormatter={(v) => currency(v)} tick={{ fontSize: 12 }} />
+            <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12 }} />
+            <Tooltip formatter={(value) => currency(Number(value))} />
+            <Bar dataKey="spent" radius={4}>
+              {data.map((row) => (
+                <Cell key={row.name} fill={STATUS_COLORS[getBudgetStatus(row.spent, row.budgeted)]} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </>
   );
 }
 
@@ -365,7 +384,7 @@ export function Categories() {
   return (
     <>
       <Card title="Spending by category (this month)">
-        <SpendChart categories={categories} />
+        <SpendChart />
       </Card>
 
       <Card title="Categories">

@@ -1,7 +1,13 @@
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from .db import SessionLocal
 from .routers import (
     accounts,
     categories,
@@ -12,8 +18,24 @@ from .routers import (
     savings,
     transactions,
 )
+from .seed import seed_all
 
-app = FastAPI(title="Kodo Personal Finance API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Runs on every server start: applies any pending Alembic migrations,
+    then seeds default categories/rules/allocations if the db is empty.
+    This is a single-user local app with one process and no deploy step,
+    so there's no reason to make "did you remember to migrate?" a thing
+    the user has to think about."""
+    alembic_cfg = Config(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
+    command.upgrade(alembic_cfg, "head")
+    with SessionLocal() as db:
+        seed_all(db)
+    yield
+
+
+app = FastAPI(title="Kodo Personal Finance API", lifespan=lifespan)
 
 # Local dev only: this app runs on localhost for a single user, with the
 # React dev server on a different port (typically 5173).
