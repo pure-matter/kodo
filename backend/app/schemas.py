@@ -15,6 +15,13 @@ class AccountCreate(BaseModel):
     parser_type: str | None = None
 
 
+class AccountUpdate(BaseModel):
+    name: str | None = None
+    institution: str | None = None
+    type: AccountType | None = None
+    parser_type: str | None = None
+
+
 class AccountOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -33,6 +40,7 @@ class CategoryCreate(BaseModel):
 
 
 class CategoryUpdate(BaseModel):
+    name: str | None = None
     group: CategoryGroup | None = None
     monthly_budget: Decimal | None = None
 
@@ -50,6 +58,12 @@ class CategoryRuleCreate(BaseModel):
     pattern: str
     category_id: int
     priority: int = 100
+
+
+class CategoryRuleUpdate(BaseModel):
+    pattern: str | None = None
+    category_id: int | None = None
+    priority: int | None = None
 
 
 class CategoryRuleOut(BaseModel):
@@ -135,4 +149,17 @@ class BudgetSummaryItem(BaseModel):
     category_name: str
     group: CategoryGroup
     budgeted: Decimal | None
+    spent: Decimal
+
+
+class ArchiveMonthRequest(BaseModel):
+    year: int
+    month: int
+
+
+class MonthlyHistoryItem(BaseModel):
+    year: int
+    month: int
+    category_id: int
+    category_name: str
     spent: Decimal

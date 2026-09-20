@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..models import Account
-from ..schemas import AccountCreate, AccountOut
+from ..schemas import AccountCreate, AccountOut, AccountUpdate
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
@@ -27,4 +27,16 @@ def get_account(account_id: int, db: Session = Depends(get_db)):
     account = db.get(Account, account_id)
     if account is None:
         raise HTTPException(404, "Account not found")
+    return account
+
+
+@router.patch("/{account_id}", response_model=AccountOut)
+def update_account(account_id: int, payload: AccountUpdate, db: Session = Depends(get_db)):
+    account = db.get(Account, account_id)
+    if account is None:
+        raise HTTPException(404, "Account not found")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(account, field, value)
+    db.commit()
+    db.refresh(account)
     return account

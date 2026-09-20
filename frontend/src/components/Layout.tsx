@@ -4,6 +4,7 @@ import "./Layout.css";
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/transactions", label: "Transactions" },
+  { to: "/categories", label: "Categories" },
   { to: "/accounts", label: "Accounts" },
 ];
 

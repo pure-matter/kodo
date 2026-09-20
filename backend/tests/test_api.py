@@ -254,3 +254,127 @@ def test_logging_a_second_balance_same_day_updates_instead_of_erroring(client):
     net_worth = client.get("/net-worth").json()
     # Only the updated value counts - no duplicate row inflating assets
     assert Decimal(net_worth["assets"]) == Decimal("1050.00")
+
+
+def test_update_account(client):
+    account = client.post(
+        "/accounts",
+        json={"name": "Checking", "institution": "BoA", "type": "checking"},
+    ).json()
+
+    response = client.patch(f"/accounts/{account['id']}", json={"name": "Joint Checking"})
+    assert response.status_code == 200
+    assert response.json()["name"] == "Joint Checking"
+    assert response.json()["institution"] == "BoA"  # untouched fields survive
+
+
+def test_update_category_budget(client):
+    groceries_id = _category_id_by_name(client, "Groceries")
+    response = client.patch(f"/categories/{groceries_id}", json={"monthly_budget": "500"})
+    assert response.status_code == 200
+    assert Decimal(response.json()["monthly_budget"]) == Decimal("500")
+
+
+def test_rename_category(client):
+    groceries_id = _category_id_by_name(client, "Groceries")
+    response = client.patch(f"/categories/{groceries_id}", json={"name": "Food & Groceries"})
+    assert response.status_code == 200
+    assert response.json()["name"] == "Food & Groceries"
+
+
+def test_create_and_delete_unused_category(client):
+    created = client.post(
+        "/categories", json={"name": "Pets", "group": "wants", "monthly_budget": "50"}
+    )
+    assert created.status_code == 201
+    category_id = created.json()["id"]
+
+    response = client.delete(f"/categories/{category_id}")
+    assert response.status_code == 204
+    assert category_id not in [c["id"] for c in client.get("/categories").json()]
+
+
+def test_cannot_delete_category_with_transactions(client):
+    account = client.post(
+        "/accounts",
+        json={"name": "GTBank", "institution": "GTBank", "type": "checking"},
+    ).json()
+    groceries_id = _category_id_by_name(client, "Groceries")
+    client.post(
+        "/transactions",
+        json={
+            "account_id": account["id"],
+            "date": "2026-09-01",
+            "description": "Store run",
+            "amount": "-40.00",
+            "category_id": groceries_id,
+        },
+    )
+
+    response = client.delete(f"/categories/{groceries_id}")
+    assert response.status_code == 400
+
+
+def test_deleting_category_cascades_its_rules(client):
+    created = client.post(
+        "/categories", json={"name": "Pets", "group": "wants", "monthly_budget": None}
+    ).json()
+    client.post("/category-rules", json={"pattern": "PETCO", "category_id": created["id"]})
+
+    client.delete(f"/categories/{created['id']}")
+
+    rules = client.get("/category-rules").json()
+    assert not any(r["pattern"] == "PETCO" for r in rules)
+
+
+def test_update_and_delete_category_rule(client):
+    groceries_id = _category_id_by_name(client, "Groceries")
+    rule = client.post(
+        "/category-rules", json={"pattern": "TRADER JOE", "category_id": groceries_id}
+    ).json()
+
+    updated = client.patch(f"/category-rules/{rule['id']}", json={"priority": 5})
+    assert updated.status_code == 200
+    assert updated.json()["priority"] == 5
+
+    deleted = client.delete(f"/category-rules/{rule['id']}")
+    assert deleted.status_code == 204
+    assert rule["id"] not in [r["id"] for r in client.get("/category-rules").json()]
+
+
+def test_archive_month_via_api_then_transactions_are_gone(client):
+    account = client.post(
+        "/accounts",
+        json={
+            "name": "Checking",
+            "institution": "Bank of America",
+            "type": "checking",
+            "parser_type": "boa_checking",
+        },
+    ).json()
+    with open("tests/parsers/fixtures/boa_checking_sample.csv", "rb") as f:
+        client.post(
+            f"/accounts/{account['id']}/import",
+            files={"file": ("statement.csv", f, "text/csv")},
+        )
+
+    groceries_id = _category_id_by_name(client, "Groceries")
+    grocery_transactions = [
+        t
+        for t in client.get("/transactions", params={"account_id": account["id"]}).json()
+        if "SAMPLE GROCERY STORE" in t["description"]
+    ]
+    for t in grocery_transactions:
+        client.patch(f"/transactions/{t['id']}", json={"category_id": groceries_id})
+
+    response = client.post("/reports/archive-month", json={"year": 2026, "month": 9})
+    assert response.status_code == 200
+    archived_groceries = next(r for r in response.json() if r["category_name"] == "Groceries")
+    assert Decimal(archived_groceries["spent"]) == Decimal("300.00")
+
+    remaining = client.get("/transactions", params={"account_id": account["id"]}).json()
+    assert remaining == []  # raw transactions are gone
+
+    history = client.get("/reports/monthly-history", params={"months": 1}).json()
+    groceries_row = next(r for r in history if r["category_name"] == "Groceries")
+    assert Decimal(groceries_row["spent"]) == Decimal("300.00")  # total survives the deletion

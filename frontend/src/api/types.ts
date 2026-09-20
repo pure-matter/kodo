@@ -68,3 +68,11 @@ export interface NetWorth {
   liabilities: string;
   net_worth: string;
 }
+
+export interface MonthlyHistoryItem {
+  year: number;
+  month: number;
+  category_id: number;
+  category_name: string;
+  spent: string;
+}

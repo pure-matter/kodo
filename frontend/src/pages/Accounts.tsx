@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { Account, AccountType, Category } from "../api/types";
+import type { Account, AccountType } from "../api/types";
 import { Card } from "../components/Card";
 import "./Accounts.css";
 
@@ -48,58 +48,38 @@ function ImportButton({ account, onImported }: { account: Account; onImported: (
   );
 }
 
-function ManualTransactionForm({ account, categories }: { account: Account; categories: Category[] }) {
-  const [date, setDate] = useState(today());
-  const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
+function EditAccountForm({
+  account,
+  onSaved,
+}: {
+  account: Account;
+  onSaved: (updated: Account) => void;
+}) {
+  const [name, setName] = useState(account.name);
+  const [institution, setInstitution] = useState(account.institution);
+  const [type, setType] = useState<AccountType>(account.type);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await api.transactions.create({
-      account_id: account.id,
-      date,
-      description,
-      amount,
-      category_id: categoryId ? Number(categoryId) : null,
-    });
-    setDescription("");
-    setAmount("");
-    setCategoryId("");
-    setStatus("Added.");
+    const updated = await api.accounts.update(account.id, { name, institution, type });
+    onSaved(updated);
   }
 
   return (
     <form className="manage-form" onSubmit={handleSubmit}>
-      <span className="manage-form-title">Add a transaction</span>
+      <span className="manage-form-title">Edit account</span>
       <div className="manage-form-row">
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-        <input
-          placeholder="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          required
-        />
-        <input
-          placeholder="Amount (negative = spend)"
-          type="number"
-          step="0.01"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          required
-        />
-        <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-          <option value="">Uncategorized</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
+        <input value={name} onChange={(e) => setName(e.target.value)} required />
+        <input value={institution} onChange={(e) => setInstitution(e.target.value)} required />
+        <select value={type} onChange={(e) => setType(e.target.value as AccountType)}>
+          {ACCOUNT_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
             </option>
           ))}
         </select>
-        <button type="submit">Add</button>
+        <button type="submit">Save</button>
       </div>
-      {status && <span className="manage-form-status">{status}</span>}
     </form>
   );
 }
@@ -144,7 +124,6 @@ function BalanceSnapshotForm({ account }: { account: Account }) {
 
 export function Accounts() {
   const [accounts, setAccounts] = useState<Account[] | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [institution, setInstitution] = useState("");
@@ -156,10 +135,7 @@ export function Accounts() {
     api.accounts.list().then(setAccounts).catch((err) => setError(String(err)));
   }
 
-  useEffect(() => {
-    refresh();
-    api.categories.list().then(setCategories).catch((err) => setError(String(err)));
-  }, []);
+  useEffect(refresh, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -173,6 +149,10 @@ export function Accounts() {
     setInstitution("");
     setParserType("");
     refresh();
+  }
+
+  function handleUpdated(updated: Account) {
+    setAccounts((prev) => prev!.map((a) => (a.id === updated.id ? updated : a)));
   }
 
   if (error) return <Card>Couldn't load accounts: {error}</Card>;
@@ -242,7 +222,7 @@ export function Accounts() {
                   {managingId === a.id && (
                     <tr>
                       <td colSpan={5} className="manage-row">
-                        {!a.parser_type && <ManualTransactionForm account={a} categories={categories} />}
+                        <EditAccountForm account={a} onSaved={handleUpdated} />
                         <BalanceSnapshotForm account={a} />
                       </td>
                     </tr>

@@ -125,6 +125,27 @@ class SavingsAllocation(Base):
     match_pattern: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
+class MonthlySpendSummary(Base):
+    """A frozen per-category total for one month, captured by an explicit
+    "archive month" action (see reporting.archive_month) so spending
+    history survives even after that month's raw Transaction rows are
+    deleted to keep the table from growing forever. Never written
+    automatically - only when the user asks to archive."""
+
+    __tablename__ = "monthly_spend_summaries"
+    __table_args__ = (
+        UniqueConstraint("category_id", "year", "month", name="uq_category_year_month"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
+    year: Mapped[int] = mapped_column()
+    month: Mapped[int] = mapped_column()
+    spent: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+
+    category: Mapped["Category"] = relationship()
+
+
 class BalanceSnapshot(Base):
     """A point-in-time balance for an account. Used for accounts with no
     transaction feed (investments, loans) to compute net worth, and can

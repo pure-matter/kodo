@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Category
+from ..models import Category, CategoryRule, MonthlySpendSummary, Transaction
 from ..schemas import CategoryCreate, CategoryOut, CategoryUpdate
 
 router = APIRouter(prefix="/categories", tags=["categories"])
@@ -32,3 +32,21 @@ def update_category(category_id: int, payload: CategoryUpdate, db: Session = Dep
     db.commit()
     db.refresh(category)
     return category
+
+
+@router.delete("/{category_id}", status_code=204)
+def delete_category(category_id: int, db: Session = Depends(get_db)):
+    category = db.get(Category, category_id)
+    if category is None:
+        raise HTTPException(404, "Category not found")
+
+    in_use = db.query(Transaction).filter_by(category_id=category_id).first()
+    if in_use:
+        raise HTTPException(
+            400, "This category still has transactions assigned to it - reassign them first."
+        )
+
+    db.query(CategoryRule).filter_by(category_id=category_id).delete()
+    db.query(MonthlySpendSummary).filter_by(category_id=category_id).delete()
+    db.delete(category)
+    db.commit()

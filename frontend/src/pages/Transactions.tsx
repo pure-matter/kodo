@@ -1,11 +1,88 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { Category, Transaction } from "../api/types";
+import type { Account, Category, Transaction } from "../api/types";
 import { Card } from "../components/Card";
 import "./Transactions.css";
 
 const currency = (value: string) =>
   Number(value).toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+function NewTransactionForm({
+  accounts,
+  categories,
+  onCreated,
+}: {
+  accounts: Account[];
+  categories: Category[];
+  onCreated: (created: Transaction) => void;
+}) {
+  const [accountId, setAccountId] = useState(accounts[0]?.id ?? 0);
+  const [date, setDate] = useState(today());
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const created = await api.transactions.create({
+      account_id: accountId,
+      date,
+      description,
+      amount,
+      category_id: categoryId ? Number(categoryId) : null,
+    });
+    onCreated(created);
+    setDescription("");
+    setAmount("");
+    setCategoryId("");
+  }
+
+  return (
+    <form className="new-transaction-form" onSubmit={handleSubmit}>
+      <select
+        aria-label="Account"
+        value={accountId}
+        onChange={(e) => setAccountId(Number(e.target.value))}
+      >
+        {accounts.map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.name}
+          </option>
+        ))}
+      </select>
+      <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+      <input
+        placeholder="Description"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        required
+      />
+      <input
+        placeholder="Amount (negative = spend)"
+        type="number"
+        step="0.01"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        required
+      />
+      <select
+        aria-label="New transaction category"
+        value={categoryId}
+        onChange={(e) => setCategoryId(e.target.value)}
+      >
+        <option value="">Uncategorized</option>
+        {categories.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+      <button type="submit">Add transaction</button>
+    </form>
+  );
+}
 
 function TransactionRow({
   transaction,
@@ -37,6 +114,7 @@ function TransactionRow({
         <td className="amount-cell">{currency(transaction.amount)}</td>
         <td>
           <select
+            aria-label="Category"
             value={transaction.category_id ?? ""}
             onChange={(e) => setCategory(Number(e.target.value), false)}
           >
@@ -86,11 +164,13 @@ function TransactionRow({
 export function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[] | null>(null);
   const [categories, setCategories] = useState<Category[] | null>(null);
+  const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [uncategorizedOnly, setUncategorizedOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.categories.list().then(setCategories).catch((err) => setError(String(err)));
+    api.accounts.list().then(setAccounts).catch((err) => setError(String(err)));
   }, []);
 
   useEffect(() => {
@@ -101,10 +181,17 @@ export function Transactions() {
   }, [uncategorizedOnly]);
 
   if (error) return <Card>Couldn't load transactions: {error}</Card>;
-  if (!transactions || !categories) return <Card>Loading…</Card>;
+  if (!transactions || !categories || !accounts) return <Card>Loading…</Card>;
 
   return (
     <Card title="Transactions">
+      {accounts.length > 0 && (
+        <NewTransactionForm
+          accounts={accounts}
+          categories={categories}
+          onCreated={(created) => setTransactions((prev) => [created, ...prev!])}
+        />
+      )}
       <label className="filter-toggle">
         <input
           type="checkbox"

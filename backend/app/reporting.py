@@ -22,6 +22,7 @@ from .models import (
     BalanceSnapshot,
     Category,
     CategoryGroup,
+    MonthlySpendSummary,
     SavingsAllocation,
     Transaction,
 )
@@ -97,6 +98,80 @@ def savings_progress(db: Session, year: int, month: int) -> list[dict]:
                 "contributed": contributed,
             }
         )
+    return results
+
+
+def archive_month(db: Session, year: int, month: int) -> list[dict]:
+    """Snapshots each Needs/Wants category's total spend for (year, month)
+    into MonthlySpendSummary (updating in place if already archived), then
+    deletes the underlying Transaction rows dated in that month across all
+    accounts to keep the table from growing forever.
+
+    Only ever called from an explicit user action - never automatically.
+    Re-importing a statement for an archived month will not detect
+    duplicates (the dedup rows are gone), which is a known, accepted
+    trade-off of clearing the data rather than a bug.
+    """
+    summary_rows = budget_summary(db, year, month)
+
+    for row in summary_rows:
+        existing = (
+            db.query(MonthlySpendSummary)
+            .filter_by(category_id=row["category_id"], year=year, month=month)
+            .first()
+        )
+        if existing:
+            existing.spent = row["spent"]
+        else:
+            db.add(
+                MonthlySpendSummary(
+                    category_id=row["category_id"],
+                    year=year,
+                    month=month,
+                    spent=row["spent"],
+                )
+            )
+    db.flush()
+
+    db.query(Transaction).filter(
+        extract("year", Transaction.date) == year,
+        extract("month", Transaction.date) == month,
+    ).delete(synchronize_session=False)
+
+    db.commit()
+    return summary_rows
+
+
+def monthly_history(db: Session, months: int) -> list[dict]:
+    """Per-category spend for each of the last `months` calendar months
+    (most recent first), preferring an archived MonthlySpendSummary when
+    one exists for that month and falling back to a live computation from
+    remaining Transaction rows otherwise - so a month you haven't archived
+    yet still shows up correctly."""
+    today = date.today()
+    year, month = today.year, today.month
+    results = []
+
+    for _ in range(months):
+        archived = {
+            s.category_id: s.spent
+            for s in db.query(MonthlySpendSummary).filter_by(year=year, month=month)
+        }
+        for row in budget_summary(db, year, month):
+            results.append(
+                {
+                    "year": year,
+                    "month": month,
+                    "category_id": row["category_id"],
+                    "category_name": row["category_name"],
+                    "spent": archived.get(row["category_id"], row["spent"]),
+                }
+            )
+        month -= 1
+        if month == 0:
+            month = 12
+            year -= 1
+
     return results
 
 
