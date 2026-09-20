@@ -33,6 +33,28 @@ Runs at `http://localhost:5173` — open that in your browser.
 
 **Tests**: `cd backend && python3 -m pytest` / `cd frontend && npm test`
 
+## One-click launch (macOS)
+
+Once you've done the one-time setup above at least once (venv + `pip install`, `npm install`), `run-kodo.sh` starts both servers and opens the app for you:
+
+```bash
+./run-kodo.sh
+```
+
+It opens the backend and frontend each in their own Terminal window (so you can see logs, or `Ctrl+C` to stop them) and opens `http://localhost:5173` in your browser once they're up. It finds the `backend/`/`frontend/` folders relative to its own location, so it works right after cloning — no path editing needed, as long as it stays at the repo root.
+
+**To turn it into a Dock icon:**
+
+1. Open **Automator** (⌘Space, type "Automator") → **File → New** → **Application**
+2. Search for "Run Shell Script", drag it into the workflow, set the shell to `/bin/bash`, and paste:
+   ```bash
+   bash "/absolute/path/to/kodo/run-kodo.sh"
+   ```
+   (using `bash "..."` rather than running the file directly means it works even if the executable bit gets lost, which downloaded/moved files sometimes do)
+3. **File → Save**, name it "Kodo", save to Applications
+4. Optional: select the new app, **⌘I**, drag `kodo-icon.png` (in the repo root) onto the icon in the top-left of the Get Info window for a custom icon
+5. Drag the app from Applications into your Dock
+
 ## User guide
 
 **Accounts** — Add each bank account/card. If it has a supported parser (BoA checking/savings, BoA credit card, Amex), you can upload statement files there; otherwise it's a manual-entry account (e.g. GTBank). Click **manage** on any account row to log a balance (feeds Net Worth) or, for manual accounts, add a transaction by hand.
