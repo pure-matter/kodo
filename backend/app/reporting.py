@@ -22,6 +22,7 @@ from .models import (
     BalanceSnapshot,
     Category,
     CategoryGroup,
+    MonthlySavingsSummary,
     MonthlySpendSummary,
     SavingsAllocation,
     Transaction,
@@ -101,11 +102,41 @@ def savings_progress(db: Session, year: int, month: int) -> list[dict]:
     return results
 
 
+def _category_totals_for_month(db: Session, year: int, month: int) -> list[dict]:
+    """budget_summary() for one month, with each row's spend swapped for an
+    archived MonthlySpendSummary value when one exists - so a month that's
+    been archived (and had its transactions deleted) still reports its real
+    total instead of a live-computed zero."""
+    archived = {
+        s.category_id: s.spent
+        for s in db.query(MonthlySpendSummary).filter_by(year=year, month=month)
+    }
+    rows = budget_summary(db, year, month)
+    for row in rows:
+        row["spent"] = archived.get(row["category_id"], row["spent"])
+    return rows
+
+
+def _savings_contributed_for_month(db: Session, year: int, month: int) -> Decimal:
+    """Total contributed across all savings allocations for one month,
+    preferring an archived MonthlySavingsSummary value the same way
+    _category_totals_for_month does for spend categories."""
+    archived = {
+        s.allocation_id: s.contributed
+        for s in db.query(MonthlySavingsSummary).filter_by(year=year, month=month)
+    }
+    return sum(
+        (archived.get(row["allocation_id"], row["contributed"]) for row in savings_progress(db, year, month)),
+        Decimal("0"),
+    )
+
+
 def archive_month(db: Session, year: int, month: int) -> list[dict]:
-    """Snapshots each Needs/Wants category's total spend for (year, month)
-    into MonthlySpendSummary (updating in place if already archived), then
-    deletes the underlying Transaction rows dated in that month across all
-    accounts to keep the table from growing forever.
+    """Snapshots each Needs/Wants category's total spend, and each savings
+    allocation's contribution, for (year, month) - updating in place if
+    already archived - then deletes the underlying Transaction rows dated
+    in that month across all accounts to keep the table from growing
+    forever.
 
     Only ever called from an explicit user action - never automatically.
     Re-importing a statement for an archived month will not detect
@@ -131,6 +162,24 @@ def archive_month(db: Session, year: int, month: int) -> list[dict]:
                     spent=row["spent"],
                 )
             )
+
+    for row in savings_progress(db, year, month):
+        existing = (
+            db.query(MonthlySavingsSummary)
+            .filter_by(allocation_id=row["allocation_id"], year=year, month=month)
+            .first()
+        )
+        if existing:
+            existing.contributed = row["contributed"]
+        else:
+            db.add(
+                MonthlySavingsSummary(
+                    allocation_id=row["allocation_id"],
+                    year=year,
+                    month=month,
+                    contributed=row["contributed"],
+                )
+            )
     db.flush()
 
     db.query(Transaction).filter(
@@ -144,29 +193,50 @@ def archive_month(db: Session, year: int, month: int) -> list[dict]:
 
 def monthly_history(db: Session, months: int) -> list[dict]:
     """Per-category spend for each of the last `months` calendar months
-    (most recent first), preferring an archived MonthlySpendSummary when
-    one exists for that month and falling back to a live computation from
-    remaining Transaction rows otherwise - so a month you haven't archived
-    yet still shows up correctly."""
+    (most recent first), preferring an archived total when one exists for
+    that month - so a month you haven't archived yet still shows up
+    correctly, and one you have doesn't drop to zero."""
     today = date.today()
     year, month = today.year, today.month
     results = []
 
     for _ in range(months):
-        archived = {
-            s.category_id: s.spent
-            for s in db.query(MonthlySpendSummary).filter_by(year=year, month=month)
-        }
-        for row in budget_summary(db, year, month):
+        for row in _category_totals_for_month(db, year, month):
             results.append(
                 {
                     "year": year,
                     "month": month,
                     "category_id": row["category_id"],
                     "category_name": row["category_name"],
-                    "spent": archived.get(row["category_id"], row["spent"]),
+                    "spent": row["spent"],
                 }
             )
+        month -= 1
+        if month == 0:
+            month = 12
+            year -= 1
+
+    return results
+
+
+def bucket_monthly_history(db: Session, months: int) -> list[dict]:
+    """Needs/Wants/Savings totals for each of the last `months` calendar
+    months (most recent first) - the same archived-vs-live preference as
+    monthly_history, rolled up to bucket level instead of per-category."""
+    today = date.today()
+    year, month = today.year, today.month
+    results = []
+
+    for _ in range(months):
+        category_rows = _category_totals_for_month(db, year, month)
+        needs = sum(
+            (r["spent"] for r in category_rows if r["group"] == CategoryGroup.NEEDS), Decimal("0")
+        )
+        wants = sum(
+            (r["spent"] for r in category_rows if r["group"] == CategoryGroup.WANTS), Decimal("0")
+        )
+        savings = _savings_contributed_for_month(db, year, month)
+        results.append({"year": year, "month": month, "needs": needs, "wants": wants, "savings": savings})
         month -= 1
         if month == 0:
             month = 12

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
@@ -8,7 +8,7 @@ vi.mock("../api/client", () => ({
   api: {
     categories: { list: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() },
     categoryRules: { list: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() },
-    reports: { budgetSummary: vi.fn(), monthlyHistory: vi.fn(), archiveMonth: vi.fn() },
+    reports: { budgetSummary: vi.fn(), monthlyHistory: vi.fn(), bucketHistory: vi.fn(), archiveMonth: vi.fn() },
     savings: { progress: vi.fn() },
   },
 }));
@@ -34,6 +34,7 @@ beforeEach(() => {
   vi.mocked(api.categoryRules.list).mockResolvedValue(RULES);
   vi.mocked(api.reports.budgetSummary).mockResolvedValue([]);
   vi.mocked(api.reports.monthlyHistory).mockResolvedValue([]);
+  vi.mocked(api.reports.bucketHistory).mockResolvedValue([]);
   vi.mocked(api.savings.progress).mockResolvedValue([]);
   vi.spyOn(window, "confirm").mockReturnValue(true);
 });
@@ -165,7 +166,7 @@ describe("Categories page", () => {
     expect(api.reports.archiveMonth).not.toHaveBeenCalled();
   });
 
-  it("toggling the segmented control switches the active view", async () => {
+  it("toggling the spend chart's segmented control switches the active view", async () => {
     vi.mocked(api.reports.budgetSummary).mockResolvedValue([
       { category_id: 1, category_name: "Groceries", group: "needs", budgeted: "400", spent: "150" },
     ]);
@@ -173,11 +174,39 @@ describe("Categories page", () => {
     render(<Categories />);
 
     await screen.findByRole("heading", { name: "Needs" });
-    const byCategoryButton = screen.getByText("By category");
-    const byBucketButton = screen.getByText("By bucket");
+    const spendCard = screen.getByText("Spending by category (this month)").closest("section")!;
+    const byCategoryButton = within(spendCard).getByText("By category");
+    const byBucketButton = within(spendCard).getByText("By bucket");
 
     expect(byCategoryButton).toHaveClass("segmented-active");
     expect(byBucketButton).not.toHaveClass("segmented-active");
+
+    await user.click(byBucketButton);
+
+    expect(byBucketButton).toHaveClass("segmented-active");
+    expect(byCategoryButton).not.toHaveClass("segmented-active");
+  });
+
+  it("toggling the history chart's segmented control switches the active view", async () => {
+    vi.mocked(api.reports.monthlyHistory).mockResolvedValue([
+      { year: 2026, month: 9, category_id: 1, category_name: "Groceries", spent: "150" },
+    ]);
+    vi.mocked(api.reports.bucketHistory).mockResolvedValue([
+      { year: 2026, month: 9, needs: "150", wants: "50", savings: "0" },
+    ]);
+    const user = userEvent.setup();
+    render(<Categories />);
+
+    await screen.findByRole("heading", { name: "Needs" });
+    const historyCard = screen.getByText("Spending history").closest("section")!;
+    // Wait for the history fetch to resolve so the picker (only present once
+    // loaded) confirms we're not asserting against a still-loading section.
+    await within(historyCard).findByText("Groceries");
+
+    const byCategoryButton = within(historyCard).getByText("By category");
+    const byBucketButton = within(historyCard).getByText("By bucket");
+
+    expect(byCategoryButton).toHaveClass("segmented-active");
 
     await user.click(byBucketButton);
 

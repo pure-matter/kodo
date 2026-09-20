@@ -125,6 +125,26 @@ class SavingsAllocation(Base):
     match_pattern: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
+class MonthlySavingsSummary(Base):
+    """A frozen per-allocation contributed total for one month, captured
+    alongside MonthlySpendSummary by the same "archive month" action, so
+    the Savings bucket in history views doesn't silently drop to zero once
+    that month's Transfer transactions are deleted."""
+
+    __tablename__ = "monthly_savings_summaries"
+    __table_args__ = (
+        UniqueConstraint("allocation_id", "year", "month", name="uq_allocation_year_month"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    allocation_id: Mapped[int] = mapped_column(ForeignKey("savings_allocations.id"))
+    year: Mapped[int] = mapped_column()
+    month: Mapped[int] = mapped_column()
+    contributed: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+
+    allocation: Mapped["SavingsAllocation"] = relationship()
+
+
 class MonthlySpendSummary(Base):
     """A frozen per-category total for one month, captured by an explicit
     "archive month" action (see reporting.archive_month) so spending

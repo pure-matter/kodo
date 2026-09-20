@@ -163,3 +163,11 @@ class MonthlyHistoryItem(BaseModel):
     category_id: int
     category_name: str
     spent: Decimal
+
+
+class BucketHistoryItem(BaseModel):
+    year: int
+    month: int
+    needs: Decimal
+    wants: Decimal
+    savings: Decimal

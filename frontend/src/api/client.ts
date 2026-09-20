@@ -1,5 +1,6 @@
 import type {
   Account,
+  BucketHistoryItem,
   BudgetSummaryItem,
   Category,
   CategoryGroup,
@@ -96,6 +97,8 @@ export const api = {
       request<BudgetSummaryItem[]>(`/reports/budget-summary?year=${year}&month=${month}`),
     monthlyHistory: (months: number) =>
       request<MonthlyHistoryItem[]>(`/reports/monthly-history?months=${months}`),
+    bucketHistory: (months: number) =>
+      request<BucketHistoryItem[]>(`/reports/bucket-history?months=${months}`),
     archiveMonth: (year: number, month: number) =>
       request<BudgetSummaryItem[]>("/reports/archive-month", {
         method: "POST",

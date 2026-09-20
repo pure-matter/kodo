@@ -378,3 +378,35 @@ def test_archive_month_via_api_then_transactions_are_gone(client):
     history = client.get("/reports/monthly-history", params={"months": 1}).json()
     groceries_row = next(r for r in history if r["category_name"] == "Groceries")
     assert Decimal(groceries_row["spent"]) == Decimal("300.00")  # total survives the deletion
+
+
+def test_bucket_history_via_api(client):
+    account = client.post(
+        "/accounts",
+        json={
+            "name": "Checking",
+            "institution": "Bank of America",
+            "type": "checking",
+            "parser_type": "boa_checking",
+        },
+    ).json()
+    with open("tests/parsers/fixtures/boa_checking_sample.csv", "rb") as f:
+        client.post(
+            f"/accounts/{account['id']}/import",
+            files={"file": ("statement.csv", f, "text/csv")},
+        )
+
+    groceries_id = _category_id_by_name(client, "Groceries")
+    grocery_transactions = [
+        t
+        for t in client.get("/transactions", params={"account_id": account["id"]}).json()
+        if "SAMPLE GROCERY STORE" in t["description"]
+    ]
+    for t in grocery_transactions:
+        client.patch(f"/transactions/{t['id']}", json={"category_id": groceries_id})
+
+    response = client.get("/reports/bucket-history", params={"months": 1})
+    assert response.status_code == 200
+    row = response.json()[0]
+    assert Decimal(row["needs"]) == Decimal("300.00")
+    assert "wants" in row and "savings" in row

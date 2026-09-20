@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../api/client";
 import type { Category, CategoryGroup, CategoryRule, MonthlyHistoryItem } from "../api/types";
 import { Card } from "../components/Card";
@@ -278,47 +278,100 @@ function SpendChart() {
   );
 }
 
+type HistoryView = "category" | "bucket";
+
+interface BucketHistoryRow {
+  label: string;
+  Needs: number;
+  Wants: number;
+  Savings: number;
+}
+
 function HistoryChart() {
   const [history, setHistory] = useState<MonthlyHistoryItem[] | null>(null);
+  const [bucketHistory, setBucketHistory] = useState<BucketHistoryRow[] | null>(null);
   const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [view, setView] = useState<HistoryView>("category");
 
   useEffect(() => {
     api.reports.monthlyHistory(6).then(setHistory);
+    api.reports.bucketHistory(6).then((rows) => {
+      setBucketHistory(
+        rows
+          .slice()
+          .sort((a, b) => (a.year === b.year ? a.month - b.month : a.year - b.year))
+          .map((r) => ({
+            label: `${monthName(r.month)} ${r.year}`,
+            Needs: Number(r.needs),
+            Wants: Number(r.wants),
+            Savings: Number(r.savings),
+          })),
+      );
+    });
   }, []);
 
-  if (!history) return <span>Loading…</span>;
+  if (!history || !bucketHistory) return <span>Loading…</span>;
 
   const categoryOptions = Array.from(
     new Map(history.map((h) => [h.category_id, h.category_name])).entries(),
   );
   const selected = categoryId ?? categoryOptions[0]?.[0];
-  const rows = history
+  const categoryRows = history
     .filter((h) => h.category_id === selected)
     .sort((a, b) => (a.year === b.year ? a.month - b.month : a.year - b.year))
     .map((h) => ({ label: `${monthName(h.month)} ${h.year}`, spent: Number(h.spent) }));
 
   return (
     <>
-      <select
-        className="history-picker"
-        value={selected ?? ""}
-        onChange={(e) => setCategoryId(Number(e.target.value))}
-      >
-        {categoryOptions.map(([id, name]) => (
-          <option key={id} value={id}>
-            {name}
-          </option>
-        ))}
-      </select>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={rows}>
-          <CartesianGrid vertical={false} stroke="var(--border-hairline)" />
-          <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-          <YAxis tickFormatter={(v) => currency(v)} tick={{ fontSize: 12 }} />
-          <Tooltip formatter={(value) => currency(Number(value))} />
-          <Bar dataKey="spent" fill="var(--brand)" radius={4} />
-        </BarChart>
-      </ResponsiveContainer>
+      <div className="segmented-control">
+        <button
+          className={view === "category" ? "segmented-active" : ""}
+          onClick={() => setView("category")}
+        >
+          By category
+        </button>
+        <button className={view === "bucket" ? "segmented-active" : ""} onClick={() => setView("bucket")}>
+          By bucket
+        </button>
+      </div>
+
+      {view === "category" ? (
+        <>
+          <select
+            className="history-picker"
+            value={selected ?? ""}
+            onChange={(e) => setCategoryId(Number(e.target.value))}
+          >
+            {categoryOptions.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={categoryRows}>
+              <CartesianGrid vertical={false} stroke="var(--border-hairline)" />
+              <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+              <YAxis tickFormatter={(v) => currency(v)} tick={{ fontSize: 12 }} />
+              <Tooltip formatter={(value) => currency(Number(value))} />
+              <Bar dataKey="spent" fill="var(--brand)" radius={4} />
+            </BarChart>
+          </ResponsiveContainer>
+        </>
+      ) : (
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={bucketHistory}>
+            <CartesianGrid vertical={false} stroke="var(--border-hairline)" />
+            <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+            <YAxis tickFormatter={(v) => currency(v)} tick={{ fontSize: 12 }} />
+            <Tooltip formatter={(value) => currency(Number(value))} />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Bar dataKey="Needs" fill="var(--brand)" radius={4} />
+            <Bar dataKey="Wants" fill="var(--series-orange)" radius={4} />
+            <Bar dataKey="Savings" fill="var(--series-aqua)" radius={4} />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
     </>
   );
 }

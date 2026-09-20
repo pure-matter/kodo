@@ -76,3 +76,11 @@ export interface MonthlyHistoryItem {
   category_name: string;
   spent: string;
 }
+
+export interface BucketHistoryItem {
+  year: number;
+  month: number;
+  needs: string;
+  wants: string;
+  savings: string;
+}
