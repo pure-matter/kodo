@@ -67,11 +67,17 @@ export const api = {
     remove: (id: number) => request<void>(`/category-rules/${id}`, { method: "DELETE" }),
   },
   transactions: {
-    list: (params?: { account_id?: number; category_id?: number; uncategorized_only?: boolean }) => {
+    list: (params?: {
+      account_id?: number;
+      category_id?: number;
+      uncategorized_only?: boolean;
+      reviewed?: boolean;
+    }) => {
       const query = new URLSearchParams();
       if (params?.account_id != null) query.set("account_id", String(params.account_id));
       if (params?.category_id != null) query.set("category_id", String(params.category_id));
       if (params?.uncategorized_only) query.set("uncategorized_only", "true");
+      if (params?.reviewed != null) query.set("reviewed", String(params.reviewed));
       const qs = query.toString();
       return request<Transaction[]>(`/transactions${qs ? `?${qs}` : ""}`);
     },
@@ -81,6 +87,11 @@ export const api = {
     ) => request<Transaction>(`/transactions/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     create: (data: { account_id: number; date: string; description: string; amount: string; category_id?: number | null }) =>
       request<Transaction>("/transactions", { method: "POST", body: JSON.stringify(data) }),
+    bulkReview: (transactionIds: number[], reviewed = true) =>
+      request<Transaction[]>("/transactions/bulk-review", {
+        method: "POST",
+        body: JSON.stringify({ transaction_ids: transactionIds, reviewed }),
+      }),
   },
   imports: {
     upload: (accountId: number, file: File) => {

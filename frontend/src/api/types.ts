@@ -32,6 +32,7 @@ export interface Transaction {
   amount: string;
   category_id: number | null;
   source_category_hint: string | null;
+  is_reviewed: boolean;
 }
 
 export interface ImportSummary {

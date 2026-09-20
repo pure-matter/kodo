@@ -410,3 +410,112 @@ def test_bucket_history_via_api(client):
     row = response.json()[0]
     assert Decimal(row["needs"]) == Decimal("300.00")
     assert "wants" in row and "savings" in row
+
+
+def test_new_transactions_start_unreviewed(client):
+    account = client.post(
+        "/accounts",
+        json={"name": "GTBank", "institution": "GTBank", "type": "checking"},
+    ).json()
+    transaction = client.post(
+        "/transactions",
+        json={
+            "account_id": account["id"],
+            "date": "2026-09-01",
+            "description": "Something",
+            "amount": "-10.00",
+        },
+    ).json()
+    assert transaction["is_reviewed"] is False
+
+
+def test_imported_transactions_start_unreviewed(client):
+    account = client.post(
+        "/accounts",
+        json={
+            "name": "Checking",
+            "institution": "Bank of America",
+            "type": "checking",
+            "parser_type": "boa_checking",
+        },
+    ).json()
+    with open("tests/parsers/fixtures/boa_checking_sample.csv", "rb") as f:
+        client.post(
+            f"/accounts/{account['id']}/import",
+            files={"file": ("statement.csv", f, "text/csv")},
+        )
+    transactions = client.get("/transactions", params={"account_id": account["id"]}).json()
+    assert all(t["is_reviewed"] is False for t in transactions)
+
+
+def test_bulk_mark_reviewed(client):
+    account = client.post(
+        "/accounts",
+        json={"name": "GTBank", "institution": "GTBank", "type": "checking"},
+    ).json()
+    ids = [
+        client.post(
+            "/transactions",
+            json={
+                "account_id": account["id"],
+                "date": "2026-09-01",
+                "description": f"Txn {i}",
+                "amount": "-10.00",
+            },
+        ).json()["id"]
+        for i in range(3)
+    ]
+
+    response = client.post("/transactions/bulk-review", json={"transaction_ids": ids[:2]})
+    assert response.status_code == 200
+    assert {t["id"] for t in response.json()} == set(ids[:2])
+    assert all(t["is_reviewed"] for t in response.json())
+
+    transactions = {t["id"]: t for t in client.get("/transactions").json()}
+    assert transactions[ids[0]]["is_reviewed"] is True
+    assert transactions[ids[1]]["is_reviewed"] is True
+    assert transactions[ids[2]]["is_reviewed"] is False  # untouched
+
+
+def test_bulk_unmark_reviewed(client):
+    account = client.post(
+        "/accounts",
+        json={"name": "GTBank", "institution": "GTBank", "type": "checking"},
+    ).json()
+    transaction = client.post(
+        "/transactions",
+        json={
+            "account_id": account["id"],
+            "date": "2026-09-01",
+            "description": "Something",
+            "amount": "-10.00",
+        },
+    ).json()
+    client.post("/transactions/bulk-review", json={"transaction_ids": [transaction["id"]]})
+
+    response = client.post(
+        "/transactions/bulk-review", json={"transaction_ids": [transaction["id"]], "reviewed": False}
+    )
+    assert response.json()[0]["is_reviewed"] is False
+
+
+def test_filter_transactions_by_reviewed_status(client):
+    account = client.post(
+        "/accounts",
+        json={"name": "GTBank", "institution": "GTBank", "type": "checking"},
+    ).json()
+    reviewed_id = client.post(
+        "/transactions",
+        json={"account_id": account["id"], "date": "2026-09-01", "description": "A", "amount": "-1"},
+    ).json()["id"]
+    unreviewed_id = client.post(
+        "/transactions",
+        json={"account_id": account["id"], "date": "2026-09-01", "description": "B", "amount": "-1"},
+    ).json()["id"]
+    client.post("/transactions/bulk-review", json={"transaction_ids": [reviewed_id]})
+
+    unreviewed = client.get("/transactions", params={"reviewed": False}).json()
+    assert {t["id"] for t in unreviewed} == {unreviewed_id}
+
+    reviewed = client.get("/transactions", params={"reviewed": True}).json()
+    assert {t["id"] for t in reviewed} == {reviewed_id}

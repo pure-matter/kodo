@@ -104,6 +104,12 @@ class Transaction(Base):
     # kept for seeding/improving rules even after the transaction has its
     # own category assigned.
     source_category_hint: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # Manually reviewed by the user (separate from categorization - a
+    # transaction can be correctly categorized by a rule and still be
+    # unreviewed). Always starts False, including on import, so newly
+    # imported transactions are clearly distinguishable from ones already
+    # looked at.
+    is_reviewed: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     account: Mapped["Account"] = relationship(back_populates="transactions")

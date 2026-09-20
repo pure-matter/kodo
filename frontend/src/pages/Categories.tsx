@@ -3,7 +3,7 @@ import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Toolti
 import { api } from "../api/client";
 import type { Category, CategoryGroup, CategoryRule, MonthlyHistoryItem } from "../api/types";
 import { Card } from "../components/Card";
-import { STATUS_COLORS, getBudgetStatus } from "../lib/budgetStatus";
+import { STATUS_COLORS, getBudgetStatus, getSavingsStatus } from "../lib/budgetStatus";
 import { aggregateByBucket, toCategoryRows, type SpendRow } from "../lib/spendAggregation";
 import "./Categories.css";
 
@@ -267,9 +267,13 @@ function SpendChart() {
             <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12 }} />
             <Tooltip formatter={(value) => currency(Number(value))} />
             <Bar dataKey="spent" radius={4}>
-              {data.map((row) => (
-                <Cell key={row.name} fill={STATUS_COLORS[getBudgetStatus(row.spent, row.budgeted)]} />
-              ))}
+              {data.map((row) => {
+                const status =
+                  row.kind === "savings"
+                    ? getSavingsStatus(row.spent, row.budgeted)
+                    : getBudgetStatus(row.spent, row.budgeted);
+                return <Cell key={row.name} fill={STATUS_COLORS[status]} />;
+              })}
             </Bar>
           </BarChart>
         </ResponsiveContainer>

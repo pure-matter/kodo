@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from ..categorization import learn_rule
 from ..db import get_db
 from ..models import Account, Category, Transaction
-from ..schemas import TransactionCategoryUpdate, TransactionCreate, TransactionOut
+from ..schemas import BulkReviewRequest, TransactionCategoryUpdate, TransactionCreate, TransactionOut
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -16,6 +16,7 @@ def list_transactions(
     account_id: int | None = None,
     category_id: int | None = None,
     uncategorized_only: bool = False,
+    reviewed: bool | None = None,
     db: Session = Depends(get_db),
 ):
     query = db.query(Transaction)
@@ -25,6 +26,8 @@ def list_transactions(
         query = query.filter(Transaction.category_id == category_id)
     if uncategorized_only:
         query = query.filter(Transaction.category_id.is_(None))
+    if reviewed is not None:
+        query = query.filter(Transaction.is_reviewed == reviewed)
     return query.order_by(Transaction.date.desc()).all()
 
 
@@ -42,6 +45,17 @@ def create_manual_transaction(payload: TransactionCreate, db: Session = Depends(
     db.commit()
     db.refresh(transaction)
     return transaction
+
+
+@router.post("/bulk-review", response_model=list[TransactionOut])
+def bulk_review_transactions(payload: BulkReviewRequest, db: Session = Depends(get_db)):
+    transactions = db.query(Transaction).filter(Transaction.id.in_(payload.transaction_ids)).all()
+    for transaction in transactions:
+        transaction.is_reviewed = payload.reviewed
+    db.commit()
+    for transaction in transactions:
+        db.refresh(transaction)
+    return transactions
 
 
 @router.patch("/{transaction_id}", response_model=TransactionOut)

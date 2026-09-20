@@ -33,6 +33,13 @@ describe("aggregateByBucket", () => {
     expect(savings.budgeted).toBe(1000); // 150 + 850 target
   });
 
+  it("tags Needs/Wants as 'spend' and Savings as 'savings', for inverted status coloring", () => {
+    const result = aggregateByBucket(BUDGET, SAVINGS);
+    expect(result.find((r) => r.name === "Needs")!.kind).toBe("spend");
+    expect(result.find((r) => r.name === "Wants")!.kind).toBe("spend");
+    expect(result.find((r) => r.name === "Savings")!.kind).toBe("savings");
+  });
+
   it("returns null budgeted for a bucket where nothing has a budget set", () => {
     const result = aggregateByBucket(
       [{ category_id: 9, category_name: "Books", group: "wants", budgeted: null, spent: "10" }],

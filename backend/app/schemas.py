@@ -99,6 +99,12 @@ class TransactionOut(BaseModel):
     amount: Decimal
     category_id: int | None
     source_category_hint: str | None
+    is_reviewed: bool
+
+
+class BulkReviewRequest(BaseModel):
+    transaction_ids: list[int]
+    reviewed: bool = True
 
 
 class ImportSummaryOut(BaseModel):

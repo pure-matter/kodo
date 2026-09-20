@@ -8,7 +8,7 @@ vi.mock("../api/client", () => ({
   api: {
     categories: { list: vi.fn() },
     accounts: { list: vi.fn() },
-    transactions: { list: vi.fn(), recategorize: vi.fn(), create: vi.fn() },
+    transactions: { list: vi.fn(), recategorize: vi.fn(), create: vi.fn(), bulkReview: vi.fn() },
   },
 }));
 
@@ -37,6 +37,17 @@ const TRANSACTIONS = [
     amount: "-150.00",
     category_id: null,
     source_category_hint: null,
+    is_reviewed: false,
+  },
+  {
+    id: 11,
+    account_id: 1,
+    date: "2026-09-04",
+    description: "AMERICAN EXPRESS PAYMENT",
+    amount: "-1000.00",
+    category_id: null,
+    source_category_hint: null,
+    is_reviewed: true,
   },
 ];
 
@@ -62,7 +73,7 @@ describe("Transactions page", () => {
     render(<Transactions />);
 
     await screen.findByText(/SAMPLE GROCERY STORE/);
-    const select = screen.getByRole("combobox", { name: "Category" }) as HTMLSelectElement;
+    const select = screen.getAllByRole("combobox", { name: "Category" })[0] as HTMLSelectElement;
     await user.selectOptions(select, "1");
 
     expect(api.transactions.recategorize).toHaveBeenCalledWith(10, {
@@ -81,7 +92,7 @@ describe("Transactions page", () => {
     render(<Transactions />);
 
     await screen.findByText(/SAMPLE GROCERY STORE/);
-    await user.click(screen.getByText("always categorize like this?"));
+    await user.click(screen.getAllByText("always categorize like this?")[0]);
 
     const patternInput = screen.getByDisplayValue("SAMPLE GROCERY STORE #123 AUSTIN TX");
     await user.clear(patternInput);
@@ -108,6 +119,7 @@ describe("Transactions page", () => {
       amount: "-10.00",
       category_id: 2,
       source_category_hint: null,
+      is_reviewed: false,
     });
     const user = userEvent.setup();
     render(<Transactions />);
@@ -122,5 +134,62 @@ describe("Transactions page", () => {
       expect.objectContaining({ account_id: 1, description: "Cash tip", amount: "-10", category_id: 2 }),
     );
     expect(await screen.findByText("Cash tip")).toBeInTheDocument();
+  });
+
+  it("shows a reviewed badge for reviewed transactions and a mark-reviewed link otherwise", async () => {
+    render(<Transactions />);
+    await screen.findByText(/SAMPLE GROCERY STORE/);
+
+    expect(screen.getByText("✓ reviewed")).toBeInTheDocument();
+    expect(screen.getByText("mark reviewed")).toBeInTheDocument();
+  });
+
+  it("clicking mark reviewed on a single row calls bulkReview with just that id", async () => {
+    vi.mocked(api.transactions.bulkReview).mockResolvedValue([{ ...TRANSACTIONS[0], is_reviewed: true }]);
+    const user = userEvent.setup();
+    render(<Transactions />);
+
+    await screen.findByText(/SAMPLE GROCERY STORE/);
+    await user.click(screen.getByText("mark reviewed"));
+
+    expect(api.transactions.bulkReview).toHaveBeenCalledWith([10], true);
+  });
+
+  it("selecting rows and bulk-marking reviewed calls the API with all selected ids", async () => {
+    vi.mocked(api.transactions.bulkReview).mockResolvedValue([{ ...TRANSACTIONS[0], is_reviewed: true }]);
+    const user = userEvent.setup();
+    render(<Transactions />);
+
+    await screen.findByText(/SAMPLE GROCERY STORE/);
+    await user.click(screen.getByRole("checkbox", { name: /SAMPLE GROCERY STORE/ }));
+
+    const bulkButton = await screen.findByText("Mark 1 as reviewed");
+    await user.click(bulkButton);
+
+    expect(api.transactions.bulkReview).toHaveBeenCalledWith([10], true);
+  });
+
+  it("select-all checkbox selects every visible transaction", async () => {
+    const user = userEvent.setup();
+    render(<Transactions />);
+
+    await screen.findByText(/SAMPLE GROCERY STORE/);
+    await user.click(screen.getByRole("checkbox", { name: "Select all" }));
+
+    expect(await screen.findByText("Mark 2 as reviewed")).toBeInTheDocument();
+  });
+
+  it("toggling 'Unreviewed only' re-fetches with the reviewed filter", async () => {
+    const user = userEvent.setup();
+    render(<Transactions />);
+
+    await screen.findByText(/SAMPLE GROCERY STORE/);
+    await user.click(screen.getByText("Unreviewed only"));
+
+    await waitFor(() =>
+      expect(api.transactions.list).toHaveBeenCalledWith(
+        expect.objectContaining({ reviewed: false }),
+      ),
+    );
   });
 });

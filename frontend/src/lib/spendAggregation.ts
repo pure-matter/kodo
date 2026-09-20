@@ -4,6 +4,11 @@ export interface SpendRow {
   name: string;
   spent: number;
   budgeted: number | null;
+  /** "savings" gets the inverse status logic (meeting/exceeding the
+   * target is good, not critical) - see getSavingsStatus. Distinguishing
+   * by this field rather than matching on `name === "Savings"` keeps the
+   * rendering layer from depending on a magic label string. */
+  kind: "spend" | "savings";
 }
 
 /** Rolls category-level budget rows up into three buckets - Needs, Wants,
@@ -21,6 +26,7 @@ export function aggregateByBucket(
       name: group === "needs" ? "Needs" : "Wants",
       spent: rows.reduce((sum, r) => sum + Number(r.spent), 0),
       budgeted: rows.reduce((sum, r) => sum + (r.budgeted !== null ? Number(r.budgeted) : 0), 0) || null,
+      kind: "spend",
     };
   };
 
@@ -30,7 +36,7 @@ export function aggregateByBucket(
   return [
     sumGroup("needs"),
     sumGroup("wants"),
-    { name: "Savings", spent: savingsContributed, budgeted: savingsTarget || null },
+    { name: "Savings", spent: savingsContributed, budgeted: savingsTarget || null, kind: "savings" },
   ];
 }
 
@@ -40,6 +46,7 @@ export function toCategoryRows(budget: BudgetSummaryItem[]): SpendRow[] {
       name: r.category_name,
       spent: Number(r.spent),
       budgeted: r.budgeted !== null ? Number(r.budgeted) : null,
+      kind: "spend" as const,
     }))
     .filter((r) => r.spent > 0)
     .sort((a, b) => b.spent - a.spent);
