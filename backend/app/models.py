@@ -37,6 +37,21 @@ class CategoryGroup(str, enum.Enum):
     TRANSFER = "transfer"
 
 
+class InvestmentType(str, enum.Enum):
+    STOCK = "stock"
+    ETF = "etf"
+    RETIREMENT_401K = "retirement_401k"
+    ROTH_IRA = "roth_ira"
+    REAL_ESTATE = "real_estate"
+    OTHER = "other"
+
+
+class RecurringFrequency(str, enum.Enum):
+    WEEKLY = "weekly"
+    BIWEEKLY = "biweekly"
+    MONTHLY = "monthly"
+
+
 class Account(Base):
     __tablename__ = "accounts"
 
@@ -170,6 +185,129 @@ class MonthlySpendSummary(Base):
     spent: Mapped[Decimal] = mapped_column(Numeric(10, 2))
 
     category: Mapped["Category"] = relationship()
+
+
+class Holding(Base):
+    """A single investment position: a stock/ETF lot, a retirement account,
+    a piece of real estate, etc. Priced two ways depending on what it is:
+    `shares` + `current_price` (kept fresh via Finnhub for stock/etf) for
+    market-traded things, or `manual_value` for anything else (land, a
+    401k balance) that the user updates by hand."""
+
+    __tablename__ = "holdings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"))
+    investment_type: Mapped[InvestmentType] = mapped_column(Enum(InvestmentType))
+    name: Mapped[str] = mapped_column(String(120))
+    # Ticker symbol, only present (and only usable for a Finnhub price
+    # refresh) for stock/etf holdings.
+    symbol: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    shares: Mapped[Decimal | None] = mapped_column(Numeric(14, 4), nullable=True)
+    # Price per share (when `shares` is set) or total value (when it isn't)
+    # at the time this was bought/opened.
+    cost_basis: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    purchase_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Per-share market price, refreshed on demand from Finnhub.
+    current_price: Mapped[Decimal | None] = mapped_column(Numeric(14, 4), nullable=True)
+    current_price_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Manually-entered current total value, for holdings Finnhub can't price
+    # (real estate, a 401k/Roth balance with no ticker).
+    manual_value: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    # Expected annual growth rate (percent, e.g. 7 for 7%) used to project
+    # this holding's value forward when there's no live price trend to
+    # extrapolate from.
+    manual_apy: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    projection_years: Mapped[int | None] = mapped_column(nullable=True)
+    # The user's own stored estimate of this holding's value at
+    # `projection_years` out - used as-is when `manual_apy` isn't set, shown
+    # alongside the APY-computed figure when it is.
+    target_projected_value: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+
+    account: Mapped["Account"] = relationship()
+
+
+class SavingsGoal(Base):
+    """A long-term savings target (e.g. "$10k emergency fund by 2028"),
+    distinct from SavingsAllocation's recurring monthly targets. Progress is
+    the sum of its GoalContribution rows, logged by hand the same way a
+    BalanceSnapshot is."""
+
+    __tablename__ = "savings_goals"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    target_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    linked_account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("accounts.id"), nullable=True
+    )
+    # Expected annual growth rate on money already saved toward this goal
+    # (e.g. a HYSA's APY), factored into the required-monthly-savings calc.
+    manual_apy: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    # Set once contributions reach target_amount. Achieved goals drop off
+    # the dashboard and get a "met" highlight in the Looking Ahead tab
+    # instead of just disappearing.
+    achieved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    linked_account: Mapped["Account | None"] = relationship()
+    contributions: Mapped[list["GoalContribution"]] = relationship(
+        back_populates="goal", order_by="GoalContribution.date"
+    )
+
+
+class GoalContribution(Base):
+    """One logged deposit toward a SavingsGoal, on a given date - the raw
+    data behind both the goal's progress total and its contributions-over-
+    time graph."""
+
+    __tablename__ = "goal_contributions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    goal_id: Mapped[int] = mapped_column(ForeignKey("savings_goals.id"))
+    date: Mapped[date] = mapped_column(Date)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+
+    goal: Mapped["SavingsGoal"] = relationship(back_populates="contributions")
+
+
+class RecurringInvestment(Base):
+    """A standing plan to contribute toward a goal or holding on a
+    schedule (e.g. "$200/month into Roth IRA"). Doesn't itself create
+    GoalContribution rows - it's a declared plan shown in the Looking Ahead
+    tab and used to project whether a goal will hit its target date, not an
+    automatic transaction feed."""
+
+    __tablename__ = "recurring_investments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    frequency: Mapped[RecurringFrequency] = mapped_column(Enum(RecurringFrequency))
+    goal_id: Mapped[int | None] = mapped_column(ForeignKey("savings_goals.id"), nullable=True)
+    holding_id: Mapped[int | None] = mapped_column(ForeignKey("holdings.id"), nullable=True)
+    active: Mapped[bool] = mapped_column(default=True)
+
+    goal: Mapped["SavingsGoal | None"] = relationship()
+    holding: Mapped["Holding | None"] = relationship()
+
+
+class UninvestedCash(Base):
+    """A point-in-time "cash sitting uninvested" balance for one account -
+    same snapshot-over-time shape as BalanceSnapshot, kept separate since
+    it's a different question (idle cash within an investment account,
+    not the account's total balance)."""
+
+    __tablename__ = "uninvested_cash"
+    __table_args__ = (UniqueConstraint("account_id", "date", name="uq_uninvested_account_date"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"))
+    date: Mapped[date] = mapped_column(Date)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+
+    account: Mapped["Account"] = relationship()
 
 
 class BalanceSnapshot(Base):

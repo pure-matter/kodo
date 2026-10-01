@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
 
-from .models import AccountType, CategoryGroup
+from .models import AccountType, CategoryGroup, InvestmentType, RecurringFrequency
 
 
 class AccountCreate(BaseModel):
@@ -177,3 +177,158 @@ class BucketHistoryItem(BaseModel):
     needs: Decimal
     wants: Decimal
     savings: Decimal
+
+
+class HoldingCreate(BaseModel):
+    account_id: int
+    investment_type: InvestmentType
+    name: str
+    symbol: str | None = None
+    shares: Decimal | None = None
+    cost_basis: Decimal
+    purchase_date: date | None = None
+    manual_value: Decimal | None = None
+    manual_apy: Decimal | None = None
+    projection_years: int | None = None
+    target_projected_value: Decimal | None = None
+
+
+class HoldingUpdate(BaseModel):
+    account_id: int | None = None
+    investment_type: InvestmentType | None = None
+    name: str | None = None
+    symbol: str | None = None
+    shares: Decimal | None = None
+    cost_basis: Decimal | None = None
+    purchase_date: date | None = None
+    manual_value: Decimal | None = None
+    manual_apy: Decimal | None = None
+    projection_years: int | None = None
+    target_projected_value: Decimal | None = None
+
+
+class HoldingOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    account_id: int
+    investment_type: InvestmentType
+    name: str
+    symbol: str | None
+    shares: Decimal | None
+    cost_basis: Decimal
+    purchase_date: date | None
+    current_price: Decimal | None
+    current_price_updated_at: datetime | None
+    manual_value: Decimal | None
+    manual_apy: Decimal | None
+    projection_years: int | None
+    target_projected_value: Decimal | None
+    current_value: Decimal
+    computed_projected_value: Decimal | None
+
+
+class SavingsGoalCreate(BaseModel):
+    name: str
+    target_amount: Decimal
+    target_date: date | None = None
+    linked_account_id: int | None = None
+    manual_apy: Decimal | None = None
+
+
+class SavingsGoalUpdate(BaseModel):
+    name: str | None = None
+    target_amount: Decimal | None = None
+    target_date: date | None = None
+    linked_account_id: int | None = None
+    manual_apy: Decimal | None = None
+
+
+class SavingsGoalOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    target_amount: Decimal
+    target_date: date | None
+    linked_account_id: int | None
+    manual_apy: Decimal | None
+    created_at: datetime
+    achieved_at: datetime | None
+    contributed: Decimal
+    required_monthly_contribution: Decimal | None
+
+
+class GoalContributionCreate(BaseModel):
+    date: date
+    amount: Decimal
+
+
+class GoalContributionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    goal_id: int
+    date: date
+    amount: Decimal
+
+
+class RecurringInvestmentCreate(BaseModel):
+    name: str
+    amount: Decimal
+    frequency: RecurringFrequency
+    goal_id: int | None = None
+    holding_id: int | None = None
+    active: bool = True
+
+
+class RecurringInvestmentUpdate(BaseModel):
+    name: str | None = None
+    amount: Decimal | None = None
+    frequency: RecurringFrequency | None = None
+    goal_id: int | None = None
+    holding_id: int | None = None
+    active: bool | None = None
+
+
+class RecurringInvestmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    amount: Decimal
+    frequency: RecurringFrequency
+    goal_id: int | None
+    holding_id: int | None
+    active: bool
+
+
+class UninvestedCashCreate(BaseModel):
+    date: date
+    amount: Decimal
+
+
+class UninvestedCashOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    account_id: int
+    date: date
+    amount: Decimal
+
+
+class PortfolioSliceOut(BaseModel):
+    label: str
+    value: Decimal
+    percent_of_total: Decimal
+
+
+class LookingAheadSummaryOut(BaseModel):
+    goals: list[SavingsGoalOut]
+    achieved_goals: list[SavingsGoalOut]
+    holdings: list[HoldingOut]
+    by_type: list[PortfolioSliceOut]
+    by_account: list[PortfolioSliceOut]
+    uninvested_cash: list[UninvestedCashOut]
+    recurring_investments: list[RecurringInvestmentOut]
+    total_portfolio_value: Decimal

@@ -24,6 +24,12 @@ uvicorn app.main:app --reload
 ```
 Migrations and seeding happen automatically on startup — nothing else to run. Runs at `http://localhost:8000` (interactive API docs at `/docs`).
 
+Optional: to use the **Looking Ahead** tab's "check price" button on stock/ETF holdings, set a [Finnhub](https://finnhub.io/) API key (free tier) before starting the backend:
+```bash
+export FINNHUB_API_KEY=your_key_here
+```
+Without it, everything else works fine — you just can't refresh live prices, and holdings without a ticker (real estate, a 401k balance) never needed one anyway.
+
 **Frontend** (from `frontend/`, in a separate terminal):
 ```bash
 npm install       # first time, or after pulling new deps
@@ -64,5 +70,11 @@ It opens the backend and frontend each in their own Terminal window (so you can 
 **Categories** — Add, rename, rebudget, or delete categories and rules (a category with existing transactions can't be deleted until they're reassigned). The spend chart toggles between **by category** and **by bucket** (Needs/Wants/Savings, where Savings pulls from your savings allocations, not a category group). **Archive a month** saves each category's total for that month, then permanently deletes the underlying transactions — the history chart still shows archived months afterward, but re-importing a statement for an archived month may create duplicates, since the records used to detect them are gone. Nothing is archived automatically; you choose when.
 
 **Dashboard** — Net worth (from your logged balances), spend vs. budget per category (green/amber/red), and savings progress toward each monthly allocation target.
+
+**Looking Ahead** — Long-term savings goals and investments, separate from the monthly budget/savings-allocation tracking elsewhere in the app:
+- **Savings goals**: set a target amount and (optionally) a target date and expected APY. Log contributions as you make them (**log contribution**); the goal's **"need $X/month to get there"** figure recalculates from your target date, progress so far, and APY (if you don't need an exact date, leave it blank and just track progress instead). **View contributions** shows cumulative progress over time. A goal that reaches its target is automatically marked **✓ met**, moves to the Achieved section, and stops counting toward the "need $X/month" math on anything else.
+- **Investments**: add holdings (stock, ETF, 401(k), Roth IRA, real estate, other) under whichever account they sit in. Stock/ETF holdings with a ticker get a **check price** button (live quote via Finnhub — see setup above); everything else uses a manually-entered current value. Set an APY and a number of years to get a projected future value computed automatically, or just type in your own estimate directly. Toggle the investments table and the portfolio breakdown chart between **by type** and **by account**.
+- **Uninvested cash**: log what's sitting as cash (not yet invested) in any investment account, same way you log a balance snapshot elsewhere.
+- **Recurring investments**: declare a standing contribution plan (e.g. "$200/month into Roth IRA") linked to a goal or a holding. This is a plan you've told the app about, not an automatic transaction feed — it doesn't log contributions by itself.
 
 **Re-importing a file** is safe — already-imported transactions are skipped, not duplicated.

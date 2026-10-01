@@ -3,6 +3,7 @@ import { Layout } from "./components/Layout";
 import { Accounts } from "./pages/Accounts";
 import { Categories } from "./pages/Categories";
 import { Dashboard } from "./pages/Dashboard";
+import { LookingAhead } from "./pages/LookingAhead";
 import { Transactions } from "./pages/Transactions";
 
 export function App() {
@@ -13,6 +14,7 @@ export function App() {
         <Route path="transactions" element={<Transactions />} />
         <Route path="categories" element={<Categories />} />
         <Route path="accounts" element={<Accounts />} />
+        <Route path="looking-ahead" element={<LookingAhead />} />
       </Route>
     </Routes>
   );

@@ -1,5 +1,7 @@
 export type AccountType = "checking" | "savings" | "credit" | "loan" | "investment";
 export type CategoryGroup = "needs" | "wants" | "income" | "transfer";
+export type InvestmentType = "stock" | "etf" | "retirement_401k" | "roth_ira" | "real_estate" | "other";
+export type RecurringFrequency = "weekly" | "biweekly" | "monthly";
 
 export interface Account {
   id: number;
@@ -84,4 +86,77 @@ export interface BucketHistoryItem {
   needs: string;
   wants: string;
   savings: string;
+}
+
+export interface Holding {
+  id: number;
+  account_id: number;
+  investment_type: InvestmentType;
+  name: string;
+  symbol: string | null;
+  shares: string | null;
+  cost_basis: string;
+  purchase_date: string | null;
+  current_price: string | null;
+  current_price_updated_at: string | null;
+  manual_value: string | null;
+  manual_apy: string | null;
+  projection_years: number | null;
+  target_projected_value: string | null;
+  current_value: string;
+  computed_projected_value: string | null;
+}
+
+export interface SavingsGoal {
+  id: number;
+  name: string;
+  target_amount: string;
+  target_date: string | null;
+  linked_account_id: number | null;
+  manual_apy: string | null;
+  created_at: string;
+  achieved_at: string | null;
+  contributed: string;
+  required_monthly_contribution: string | null;
+}
+
+export interface GoalContribution {
+  id: number;
+  goal_id: number;
+  date: string;
+  amount: string;
+}
+
+export interface RecurringInvestment {
+  id: number;
+  name: string;
+  amount: string;
+  frequency: RecurringFrequency;
+  goal_id: number | null;
+  holding_id: number | null;
+  active: boolean;
+}
+
+export interface UninvestedCash {
+  id: number;
+  account_id: number;
+  date: string;
+  amount: string;
+}
+
+export interface PortfolioSlice {
+  label: string;
+  value: string;
+  percent_of_total: string;
+}
+
+export interface LookingAheadSummary {
+  goals: SavingsGoal[];
+  achieved_goals: SavingsGoal[];
+  holdings: Holding[];
+  by_type: PortfolioSlice[];
+  by_account: PortfolioSlice[];
+  uninvested_cash: UninvestedCash[];
+  recurring_investments: RecurringInvestment[];
+  total_portfolio_value: string;
 }

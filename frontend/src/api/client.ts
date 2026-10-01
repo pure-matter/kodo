@@ -5,12 +5,20 @@ import type {
   Category,
   CategoryGroup,
   CategoryRule,
+  GoalContribution,
+  Holding,
   ImportSummary,
+  InvestmentType,
+  LookingAheadSummary,
   MonthlyHistoryItem,
   NetWorth,
+  RecurringFrequency,
+  RecurringInvestment,
   SavingsAllocation,
+  SavingsGoal,
   SavingsProgress,
   Transaction,
+  UninvestedCash,
 } from "./types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -125,5 +133,92 @@ export const api = {
     get: () => request<NetWorth>("/net-worth"),
     addBalanceSnapshot: (accountId: number, data: { date: string; balance: string }) =>
       request(`/accounts/${accountId}/balance-snapshots`, { method: "POST", body: JSON.stringify(data) }),
+  },
+  holdings: {
+    list: () => request<Holding[]>("/holdings"),
+    create: (data: {
+      account_id: number;
+      investment_type: InvestmentType;
+      name: string;
+      symbol?: string | null;
+      shares?: string | null;
+      cost_basis: string;
+      purchase_date?: string | null;
+      manual_value?: string | null;
+      manual_apy?: string | null;
+      projection_years?: number | null;
+      target_projected_value?: string | null;
+    }) => request<Holding>("/holdings", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<{
+      account_id: number;
+      investment_type: InvestmentType;
+      name: string;
+      symbol: string | null;
+      shares: string | null;
+      cost_basis: string;
+      purchase_date: string | null;
+      manual_value: string | null;
+      manual_apy: string | null;
+      projection_years: number | null;
+      target_projected_value: string | null;
+    }>) => request<Holding>(`/holdings/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    remove: (id: number) => request<void>(`/holdings/${id}`, { method: "DELETE" }),
+    refreshPrice: (id: number) => request<Holding>(`/holdings/${id}/refresh-price`, { method: "POST" }),
+  },
+  savingsGoals: {
+    list: () => request<SavingsGoal[]>("/savings-goals"),
+    create: (data: {
+      name: string;
+      target_amount: string;
+      target_date?: string | null;
+      linked_account_id?: number | null;
+      manual_apy?: string | null;
+    }) => request<SavingsGoal>("/savings-goals", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<{
+      name: string;
+      target_amount: string;
+      target_date: string | null;
+      linked_account_id: number | null;
+      manual_apy: string | null;
+    }>) => request<SavingsGoal>(`/savings-goals/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    remove: (id: number) => request<void>(`/savings-goals/${id}`, { method: "DELETE" }),
+    listContributions: (goalId: number) =>
+      request<GoalContribution[]>(`/savings-goals/${goalId}/contributions`),
+    addContribution: (goalId: number, data: { date: string; amount: string }) =>
+      request<GoalContribution>(`/savings-goals/${goalId}/contributions`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+  recurringInvestments: {
+    list: () => request<RecurringInvestment[]>("/recurring-investments"),
+    create: (data: {
+      name: string;
+      amount: string;
+      frequency: RecurringFrequency;
+      goal_id?: number | null;
+      holding_id?: number | null;
+      active?: boolean;
+    }) => request<RecurringInvestment>("/recurring-investments", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<{
+      name: string;
+      amount: string;
+      frequency: RecurringFrequency;
+      goal_id: number | null;
+      holding_id: number | null;
+      active: boolean;
+    }>) => request<RecurringInvestment>(`/recurring-investments/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    remove: (id: number) => request<void>(`/recurring-investments/${id}`, { method: "DELETE" }),
+  },
+  uninvestedCash: {
+    list: (accountId: number) => request<UninvestedCash[]>(`/accounts/${accountId}/uninvested-cash`),
+    log: (accountId: number, data: { date: string; amount: string }) =>
+      request<UninvestedCash>(`/accounts/${accountId}/uninvested-cash`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+  lookingAhead: {
+    summary: () => request<LookingAheadSummary>("/looking-ahead/summary"),
   },
 };

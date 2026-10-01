@@ -13,6 +13,7 @@ from .routers import (
     categories,
     category_rules,
     imports,
+    investments,
     net_worth,
     reports,
     savings,
@@ -54,6 +55,7 @@ app.include_router(imports.router)
 app.include_router(savings.router)
 app.include_router(net_worth.router)
 app.include_router(reports.router)
+app.include_router(investments.router)
 
 
 @app.get("/health")

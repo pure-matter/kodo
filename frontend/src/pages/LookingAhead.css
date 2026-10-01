@@ -1,0 +1,195 @@
+.inline-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.inline-form input,
+.inline-form select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-hairline);
+  font-size: 14px;
+}
+
+.inline-form button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--brand);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmented-control {
+  display: inline-flex;
+  background: var(--brand-tint);
+  border-radius: 999px;
+  padding: 3px;
+  margin-bottom: 16px;
+}
+
+.segmented-control button {
+  border: none;
+  background: none;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.segmented-control button.segmented-active {
+  background: var(--brand);
+  color: white;
+}
+
+.category-group {
+  margin-top: 20px;
+}
+
+.category-group-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 16px 0 8px;
+}
+
+.categories-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.categories-table th {
+  text-align: left;
+  padding: 6px 8px;
+  color: var(--text-muted);
+  font-weight: 500;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.categories-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--brand);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 10px;
+}
+
+.link-button-danger {
+  color: var(--status-critical);
+}
+
+.row-error {
+  color: var(--status-critical);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.row-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.muted {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.manage-form-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.manage-form-row input,
+.manage-form-row select {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-hairline);
+  font-size: 13px;
+}
+
+.manage-form-row button {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  background: var(--brand);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.goal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.goal-card {
+  border: 1px solid var(--border-hairline);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.goal-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.goal-card-name {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.goal-achieved {
+  background: var(--brand-tint);
+  border-color: var(--status-good);
+}
+
+.goal-met-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--status-good);
+  background: white;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.goal-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+
+.goal-actions {
+  margin-top: 10px;
+}
