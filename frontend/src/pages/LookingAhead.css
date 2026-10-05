@@ -14,6 +14,10 @@
   font-size: 14px;
 }
 
+.inline-form select {
+  padding-right: 32px;
+}
+
 .inline-form button {
   padding: 8px 16px;
   border-radius: 8px;
@@ -121,6 +125,11 @@
   border-radius: 8px;
   border: 1px solid var(--border-hairline);
   font-size: 13px;
+}
+
+.manage-form-row select {
+  padding-right: 28px;
+  background-position: right 10px center;
 }
 
 .manage-form-row button {

@@ -4,6 +4,39 @@ h2 {
   color: var(--text-primary);
 }
 
+/* Every <select> in the app shares this look - a custom chevron instead of
+ * the browser's native (and inconsistently-styled) arrow, with room for it
+ * so it doesn't crowd the edge of the control. Pages that need a different
+ * size/weight (e.g. the Dashboard's month picker) override padding/
+ * border-radius/font only, not the chevron itself. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding: 8px 32px 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-hairline);
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background-color: white;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235b6b82' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+select:hover {
+  border-color: var(--brand);
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-tint);
+}
+
 .stat-tile {
   display: flex;
   flex-direction: column;
