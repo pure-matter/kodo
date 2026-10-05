@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { Account, Category, Transaction } from "../api/types";
 import { Card } from "../components/Card";
@@ -188,6 +189,9 @@ function TransactionRow({
 }
 
 export function Transactions() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryFilter = searchParams.get("category_id");
+
   const [transactions, setTransactions] = useState<Transaction[] | null>(null);
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [accounts, setAccounts] = useState<Account[] | null>(null);
@@ -203,13 +207,26 @@ export function Transactions() {
 
   useEffect(() => {
     api.transactions
-      .list({ uncategorized_only: uncategorizedOnly, reviewed: unreviewedOnly ? false : undefined })
+      .list({
+        category_id: categoryFilter ? Number(categoryFilter) : undefined,
+        uncategorized_only: uncategorizedOnly,
+        reviewed: unreviewedOnly ? false : undefined,
+      })
       .then((rows) => {
         setTransactions(rows);
         setSelectedIds(new Set());
       })
       .catch((err) => setError(String(err)));
-  }, [uncategorizedOnly, unreviewedOnly]);
+  }, [categoryFilter, uncategorizedOnly, unreviewedOnly]);
+
+  function handleCategoryFilterChange(value: string) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) next.set("category_id", value);
+      else next.delete("category_id");
+      return next;
+    });
+  }
 
   if (error) return <Card>Couldn't load transactions: {error}</Card>;
   if (!transactions || !categories || !accounts) return <Card>Loading…</Card>;
@@ -246,6 +263,19 @@ export function Transactions() {
         />
       )}
       <div className="filters-row">
+        <select
+          className="category-filter"
+          aria-label="Filter by category"
+          value={categoryFilter ?? ""}
+          onChange={(e) => handleCategoryFilterChange(e.target.value)}
+        >
+          <option value="">All categories</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
         <label className="filter-toggle">
           <input
             type="checkbox"

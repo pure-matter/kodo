@@ -72,6 +72,11 @@ export interface NetWorth {
   net_worth: string;
 }
 
+export interface AvailableMonth {
+  year: number;
+  month: number;
+}
+
 export interface MonthlyHistoryItem {
   year: number;
   month: number;

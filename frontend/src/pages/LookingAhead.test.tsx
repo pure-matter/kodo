@@ -21,7 +21,7 @@ vi.mock("../api/client", () => ({
 }));
 
 const ACCOUNTS = [
-  { id: 1, name: "Fidelity", institution: "Fidelity", type: "investment", parser_type: null, created_at: "2026-01-01T00:00:00Z" },
+  { id: 1, name: "Fidelity", institution: "Fidelity", type: "investment" as const, parser_type: null, created_at: "2026-01-01T00:00:00Z" },
 ];
 
 const ACTIVE_GOAL = {
@@ -51,7 +51,7 @@ const ACHIEVED_GOAL = {
 const HOLDING = {
   id: 1,
   account_id: 1,
-  investment_type: "stock",
+  investment_type: "stock" as const,
   name: "Apple",
   symbol: "AAPL",
   shares: "10",

@@ -4,8 +4,20 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..reporting import archive_month, budget_summary, bucket_monthly_history, monthly_history
-from ..schemas import ArchiveMonthRequest, BucketHistoryItem, BudgetSummaryItem, MonthlyHistoryItem
+from ..reporting import (
+    archive_month,
+    available_months,
+    budget_summary,
+    bucket_monthly_history,
+    monthly_history,
+)
+from ..schemas import (
+    ArchiveMonthRequest,
+    AvailableMonthOut,
+    BucketHistoryItem,
+    BudgetSummaryItem,
+    MonthlyHistoryItem,
+)
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -17,6 +29,11 @@ def get_budget_summary(
     db: Session = Depends(get_db),
 ):
     return budget_summary(db, year, month)
+
+
+@router.get("/available-months", response_model=list[AvailableMonthOut])
+def get_available_months(db: Session = Depends(get_db)):
+    return available_months(db)
 
 
 @router.get("/monthly-history", response_model=list[MonthlyHistoryItem])

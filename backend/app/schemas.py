@@ -163,6 +163,11 @@ class ArchiveMonthRequest(BaseModel):
     month: int
 
 
+class AvailableMonthOut(BaseModel):
+    year: int
+    month: int
+
+
 class MonthlyHistoryItem(BaseModel):
     year: int
     month: int

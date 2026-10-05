@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../api/client";
-import type { Category, CategoryGroup, CategoryRule, MonthlyHistoryItem } from "../api/types";
+import type { Category, CategoryGroup, CategoryRule } from "../api/types";
 import { Card } from "../components/Card";
-import { STATUS_COLORS, getBudgetStatus, getSavingsStatus } from "../lib/budgetStatus";
-import { aggregateByBucket, toCategoryRows, type SpendRow } from "../lib/spendAggregation";
 import "./Categories.css";
 
 const GROUPS: CategoryGroup[] = ["needs", "wants", "income", "transfer"];
@@ -14,9 +11,6 @@ const GROUP_LABELS: Record<CategoryGroup, string> = {
   income: "Income",
   transfer: "Transfer",
 };
-
-const currency = (value: number) =>
-  value.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
 const monthName = (month: number) =>
   new Date(2000, month - 1, 1).toLocaleString("en-US", { month: "short" });
@@ -222,164 +216,6 @@ function AddRuleForm({ categories, onCreated }: { categories: Category[]; onCrea
   );
 }
 
-type ChartView = "category" | "bucket";
-
-function SpendChart() {
-  const [byCategory, setByCategory] = useState<SpendRow[] | null>(null);
-  const [byBucket, setByBucket] = useState<SpendRow[] | null>(null);
-  const [view, setView] = useState<ChartView>("category");
-
-  useEffect(() => {
-    const now = new Date();
-    Promise.all([
-      api.reports.budgetSummary(now.getFullYear(), now.getMonth() + 1),
-      api.savings.progress(now.getFullYear(), now.getMonth() + 1),
-    ]).then(([budget, savings]) => {
-      setByCategory(toCategoryRows(budget));
-      setByBucket(aggregateByBucket(budget, savings));
-    });
-  }, []);
-
-  const data = view === "category" ? byCategory : byBucket;
-
-  return (
-    <>
-      <div className="segmented-control">
-        <button
-          className={view === "category" ? "segmented-active" : ""}
-          onClick={() => setView("category")}
-        >
-          By category
-        </button>
-        <button className={view === "bucket" ? "segmented-active" : ""} onClick={() => setView("bucket")}>
-          By bucket
-        </button>
-      </div>
-      {!data ? (
-        <span>Loading…</span>
-      ) : data.length === 0 ? (
-        <span className="muted">No spending recorded this month yet.</span>
-      ) : (
-        <ResponsiveContainer width="100%" height={Math.max(data.length * 36, 120)}>
-          <BarChart data={data} layout="vertical" margin={{ left: 24, right: 24 }}>
-            <CartesianGrid horizontal={false} stroke="var(--border-hairline)" />
-            <XAxis type="number" tickFormatter={(v) => currency(v)} tick={{ fontSize: 12 }} />
-            <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12 }} />
-            <Tooltip formatter={(value) => currency(Number(value))} />
-            <Bar dataKey="spent" radius={4}>
-              {data.map((row) => {
-                const status =
-                  row.kind === "savings"
-                    ? getSavingsStatus(row.spent, row.budgeted)
-                    : getBudgetStatus(row.spent, row.budgeted);
-                return <Cell key={row.name} fill={STATUS_COLORS[status]} />;
-              })}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      )}
-    </>
-  );
-}
-
-type HistoryView = "category" | "bucket";
-
-interface BucketHistoryRow {
-  label: string;
-  Needs: number;
-  Wants: number;
-  Savings: number;
-}
-
-function HistoryChart() {
-  const [history, setHistory] = useState<MonthlyHistoryItem[] | null>(null);
-  const [bucketHistory, setBucketHistory] = useState<BucketHistoryRow[] | null>(null);
-  const [categoryId, setCategoryId] = useState<number | null>(null);
-  const [view, setView] = useState<HistoryView>("category");
-
-  useEffect(() => {
-    api.reports.monthlyHistory(6).then(setHistory);
-    api.reports.bucketHistory(6).then((rows) => {
-      setBucketHistory(
-        rows
-          .slice()
-          .sort((a, b) => (a.year === b.year ? a.month - b.month : a.year - b.year))
-          .map((r) => ({
-            label: `${monthName(r.month)} ${r.year}`,
-            Needs: Number(r.needs),
-            Wants: Number(r.wants),
-            Savings: Number(r.savings),
-          })),
-      );
-    });
-  }, []);
-
-  if (!history || !bucketHistory) return <span>Loading…</span>;
-
-  const categoryOptions = Array.from(
-    new Map(history.map((h) => [h.category_id, h.category_name])).entries(),
-  );
-  const selected = categoryId ?? categoryOptions[0]?.[0];
-  const categoryRows = history
-    .filter((h) => h.category_id === selected)
-    .sort((a, b) => (a.year === b.year ? a.month - b.month : a.year - b.year))
-    .map((h) => ({ label: `${monthName(h.month)} ${h.year}`, spent: Number(h.spent) }));
-
-  return (
-    <>
-      <div className="segmented-control">
-        <button
-          className={view === "category" ? "segmented-active" : ""}
-          onClick={() => setView("category")}
-        >
-          By category
-        </button>
-        <button className={view === "bucket" ? "segmented-active" : ""} onClick={() => setView("bucket")}>
-          By bucket
-        </button>
-      </div>
-
-      {view === "category" ? (
-        <>
-          <select
-            className="history-picker"
-            value={selected ?? ""}
-            onChange={(e) => setCategoryId(Number(e.target.value))}
-          >
-            {categoryOptions.map(([id, name]) => (
-              <option key={id} value={id}>
-                {name}
-              </option>
-            ))}
-          </select>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={categoryRows}>
-              <CartesianGrid vertical={false} stroke="var(--border-hairline)" />
-              <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-              <YAxis tickFormatter={(v) => currency(v)} tick={{ fontSize: 12 }} />
-              <Tooltip formatter={(value) => currency(Number(value))} />
-              <Bar dataKey="spent" fill="var(--brand)" radius={4} />
-            </BarChart>
-          </ResponsiveContainer>
-        </>
-      ) : (
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={bucketHistory}>
-            <CartesianGrid vertical={false} stroke="var(--border-hairline)" />
-            <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-            <YAxis tickFormatter={(v) => currency(v)} tick={{ fontSize: 12 }} />
-            <Tooltip formatter={(value) => currency(Number(value))} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="Needs" fill="var(--brand)" radius={4} />
-            <Bar dataKey="Wants" fill="var(--series-orange)" radius={4} />
-            <Bar dataKey="Savings" fill="var(--series-aqua)" radius={4} />
-          </BarChart>
-        </ResponsiveContainer>
-      )}
-    </>
-  );
-}
-
 function ArchiveMonth() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -440,10 +276,6 @@ export function Categories() {
 
   return (
     <>
-      <Card title="Spending by category (this month)">
-        <SpendChart />
-      </Card>
-
       <Card title="Categories">
         <AddCategoryForm onCreated={(c) => setCategories((prev) => [...prev!, c])} />
         {GROUPS.map((group) => {
@@ -506,10 +338,6 @@ export function Categories() {
               ))}
           </tbody>
         </table>
-      </Card>
-
-      <Card title="Spending history">
-        <HistoryChart />
       </Card>
 
       <Card title="Archive a month">

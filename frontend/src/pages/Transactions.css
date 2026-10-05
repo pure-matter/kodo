@@ -41,6 +41,13 @@
   color: var(--text-secondary);
 }
 
+.category-filter {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-hairline);
+  font-size: 14px;
+}
+
 .bulk-action-button {
   padding: 6px 14px;
   border-radius: 999px;

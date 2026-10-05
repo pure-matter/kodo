@@ -1,8 +1,17 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import { Transactions } from "./Transactions";
+
+function renderTransactions() {
+  return render(
+    <MemoryRouter>
+      <Transactions />
+    </MemoryRouter>,
+  );
+}
 
 vi.mock("../api/client", () => ({
   api: {
@@ -59,7 +68,7 @@ beforeEach(() => {
 
 describe("Transactions page", () => {
   it("lists transactions with their descriptions and amounts", async () => {
-    render(<Transactions />);
+    renderTransactions();
     expect(await screen.findByText(/SAMPLE GROCERY STORE/)).toBeInTheDocument();
     expect(screen.getByText("-$150.00")).toBeInTheDocument();
   });
@@ -70,7 +79,7 @@ describe("Transactions page", () => {
       category_id: 1,
     });
     const user = userEvent.setup();
-    render(<Transactions />);
+    renderTransactions();
 
     await screen.findByText(/SAMPLE GROCERY STORE/);
     const select = screen.getAllByRole("combobox", { name: "Category" })[0] as HTMLSelectElement;
@@ -89,7 +98,7 @@ describe("Transactions page", () => {
       category_id: 1,
     });
     const user = userEvent.setup();
-    render(<Transactions />);
+    renderTransactions();
 
     await screen.findByText(/SAMPLE GROCERY STORE/);
     await user.click(screen.getAllByText("always categorize like this?")[0]);
@@ -122,7 +131,7 @@ describe("Transactions page", () => {
       is_reviewed: false,
     });
     const user = userEvent.setup();
-    render(<Transactions />);
+    renderTransactions();
 
     await screen.findByText(/SAMPLE GROCERY STORE/);
     await user.type(screen.getByPlaceholderText("Description"), "Cash tip");
@@ -137,7 +146,7 @@ describe("Transactions page", () => {
   });
 
   it("shows a reviewed badge for reviewed transactions and a mark-reviewed link otherwise", async () => {
-    render(<Transactions />);
+    renderTransactions();
     await screen.findByText(/SAMPLE GROCERY STORE/);
 
     expect(screen.getByText("✓ reviewed")).toBeInTheDocument();
@@ -147,7 +156,7 @@ describe("Transactions page", () => {
   it("clicking mark reviewed on a single row calls bulkReview with just that id", async () => {
     vi.mocked(api.transactions.bulkReview).mockResolvedValue([{ ...TRANSACTIONS[0], is_reviewed: true }]);
     const user = userEvent.setup();
-    render(<Transactions />);
+    renderTransactions();
 
     await screen.findByText(/SAMPLE GROCERY STORE/);
     await user.click(screen.getByText("mark reviewed"));
@@ -158,7 +167,7 @@ describe("Transactions page", () => {
   it("selecting rows and bulk-marking reviewed calls the API with all selected ids", async () => {
     vi.mocked(api.transactions.bulkReview).mockResolvedValue([{ ...TRANSACTIONS[0], is_reviewed: true }]);
     const user = userEvent.setup();
-    render(<Transactions />);
+    renderTransactions();
 
     await screen.findByText(/SAMPLE GROCERY STORE/);
     await user.click(screen.getByRole("checkbox", { name: /SAMPLE GROCERY STORE/ }));
@@ -171,7 +180,7 @@ describe("Transactions page", () => {
 
   it("select-all checkbox selects every visible transaction", async () => {
     const user = userEvent.setup();
-    render(<Transactions />);
+    renderTransactions();
 
     await screen.findByText(/SAMPLE GROCERY STORE/);
     await user.click(screen.getByRole("checkbox", { name: "Select all" }));
@@ -181,7 +190,7 @@ describe("Transactions page", () => {
 
   it("toggling 'Unreviewed only' re-fetches with the reviewed filter", async () => {
     const user = userEvent.setup();
-    render(<Transactions />);
+    renderTransactions();
 
     await screen.findByText(/SAMPLE GROCERY STORE/);
     await user.click(screen.getByText("Unreviewed only"));
@@ -190,6 +199,32 @@ describe("Transactions page", () => {
       expect(api.transactions.list).toHaveBeenCalledWith(
         expect.objectContaining({ reviewed: false }),
       ),
+    );
+  });
+
+  it("initializes the category filter from a ?category_id= URL param", async () => {
+    render(
+      <MemoryRouter initialEntries={["/transactions?category_id=2"]}>
+        <Transactions />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText(/SAMPLE GROCERY STORE/);
+    await waitFor(() =>
+      expect(api.transactions.list).toHaveBeenCalledWith(expect.objectContaining({ category_id: 2 })),
+    );
+    expect(screen.getByRole("combobox", { name: "Filter by category" })).toHaveValue("2");
+  });
+
+  it("changing the category filter dropdown re-fetches by that category", async () => {
+    const user = userEvent.setup();
+    renderTransactions();
+
+    await screen.findByText(/SAMPLE GROCERY STORE/);
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter by category" }), "1");
+
+    await waitFor(() =>
+      expect(api.transactions.list).toHaveBeenCalledWith(expect.objectContaining({ category_id: 1 })),
     );
   });
 });

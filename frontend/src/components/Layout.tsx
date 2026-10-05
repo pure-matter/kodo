@@ -4,9 +4,8 @@ import "./Layout.css";
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/transactions", label: "Transactions" },
-  { to: "/categories", label: "Categories" },
   { to: "/looking-ahead", label: "Looking Ahead" },
-  { to: "/accounts", label: "Accounts" },
+  { to: "/settings", label: "Settings" },
 ];
 
 export function Layout() {

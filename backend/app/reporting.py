@@ -245,6 +245,22 @@ def bucket_monthly_history(db: Session, months: int) -> list[dict]:
     return results
 
 
+def available_months(db: Session) -> list[dict]:
+    """Distinct (year, month) pairs that still have live transactions,
+    most recent first. A month that's been archived has had its
+    transactions deleted, so it naturally drops out of this list - the
+    Dashboard's month picker uses it to only offer months it can show a
+    real (non-zero) live summary for."""
+    rows = (
+        db.query(extract("year", Transaction.date), extract("month", Transaction.date))
+        .distinct()
+        .all()
+    )
+    months = [{"year": int(year), "month": int(month)} for year, month in rows]
+    months.sort(key=lambda m: (m["year"], m["month"]), reverse=True)
+    return months
+
+
 def net_worth(db: Session) -> dict:
     assets = Decimal("0")
     liabilities = Decimal("0")

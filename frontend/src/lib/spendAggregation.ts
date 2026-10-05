@@ -9,6 +9,11 @@ export interface SpendRow {
    * by this field rather than matching on `name === "Savings"` keeps the
    * rendering layer from depending on a magic label string. */
   kind: "spend" | "savings";
+  /** Set only on a single-category row (toCategoryRows) - lets the chart
+   * link a bar to that category's filtered transaction list. Bucket rows
+   * (aggregateByBucket) roll up multiple categories, so there's no one
+   * category to link to. */
+  category_id: number | null;
 }
 
 /** Rolls category-level budget rows up into three buckets - Needs, Wants,
@@ -27,6 +32,7 @@ export function aggregateByBucket(
       spent: rows.reduce((sum, r) => sum + Number(r.spent), 0),
       budgeted: rows.reduce((sum, r) => sum + (r.budgeted !== null ? Number(r.budgeted) : 0), 0) || null,
       kind: "spend",
+      category_id: null,
     };
   };
 
@@ -36,7 +42,13 @@ export function aggregateByBucket(
   return [
     sumGroup("needs"),
     sumGroup("wants"),
-    { name: "Savings", spent: savingsContributed, budgeted: savingsTarget || null, kind: "savings" },
+    {
+      name: "Savings",
+      spent: savingsContributed,
+      budgeted: savingsTarget || null,
+      kind: "savings",
+      category_id: null,
+    },
   ];
 }
 
@@ -47,6 +59,7 @@ export function toCategoryRows(budget: BudgetSummaryItem[]): SpendRow[] {
       spent: Number(r.spent),
       budgeted: r.budgeted !== null ? Number(r.budgeted) : null,
       kind: "spend" as const,
+      category_id: r.category_id,
     }))
     .filter((r) => r.spent > 0)
     .sort((a, b) => b.spent - a.spent);
