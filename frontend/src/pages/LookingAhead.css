@@ -136,6 +136,23 @@
   font-size: 13px;
 }
 
+.manage-row {
+  background: var(--brand-tint);
+}
+
+.manage-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+}
+
+.manage-form-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
 .manage-form-row {
   display: flex;
   gap: 8px;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../api/client";
 import type {
@@ -314,6 +314,7 @@ function AddHoldingForm({ accounts, onCreated }: { accounts: Account[]; onCreate
       />
       <input
         placeholder="Cost basis"
+        title="What you paid: price per share if you filled in Shares, otherwise the total amount. Not used as today's value."
         type="number"
         step="0.01"
         value={costBasis}
@@ -322,7 +323,8 @@ function AddHoldingForm({ accounts, onCreated }: { accounts: Account[]; onCreate
       />
       <input type="date" title="Purchase date (optional)" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
       <input
-        placeholder="Current value (if no ticker)"
+        placeholder="Current total value (optional)"
+        title="What this holding is worth today, in total. Overrides the ticker price/cost-basis estimate below - set this for anything without a ticker (RSUs, a 401k balance, real estate)."
         type="number"
         step="0.01"
         value={manualValue}
@@ -348,6 +350,83 @@ function AddHoldingForm({ accounts, onCreated }: { accounts: Account[]; onCreate
   );
 }
 
+function EditHoldingForm({ holding, onSaved }: { holding: Holding; onSaved: (updated: Holding) => void }) {
+  const [shares, setShares] = useState(holding.shares ?? "");
+  const [costBasis, setCostBasis] = useState(holding.cost_basis);
+  const [manualValue, setManualValue] = useState(holding.manual_value ?? "");
+  const [apy, setApy] = useState(holding.manual_apy ?? "");
+  const [projectionYears, setProjectionYears] = useState(holding.projection_years ?? "");
+  const [targetProjectedValue, setTargetProjectedValue] = useState(holding.target_projected_value ?? "");
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave() {
+    setError(null);
+    try {
+      const updated = await api.holdings.update(holding.id, {
+        shares: shares === "" ? null : String(shares),
+        cost_basis: String(costBasis),
+        manual_value: manualValue === "" ? null : String(manualValue),
+        manual_apy: apy === "" ? null : String(apy),
+        projection_years: projectionYears === "" ? null : Number(projectionYears),
+        target_projected_value: targetProjectedValue === "" ? null : String(targetProjectedValue),
+      });
+      onSaved(updated);
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
+  return (
+    <div className="manage-form">
+      <span className="manage-form-title">Edit holding</span>
+      <div className="manage-form-row">
+        <input
+          placeholder="Shares (optional)"
+          title="Leave blank for a holding with no share count (real estate, a 401k balance)."
+          type="number"
+          step="0.0001"
+          value={shares}
+          onChange={(e) => setShares(e.target.value)}
+        />
+        <input
+          placeholder="Cost basis"
+          title="What you paid: price per share if Shares is set, otherwise the total amount."
+          type="number"
+          step="0.01"
+          value={costBasis}
+          onChange={(e) => setCostBasis(e.target.value)}
+        />
+        <input
+          placeholder="Current total value (optional)"
+          title="What this is worth today, in total - overrides the ticker price/cost-basis estimate."
+          type="number"
+          step="0.01"
+          value={manualValue}
+          onChange={(e) => setManualValue(e.target.value)}
+        />
+      </div>
+      <div className="manage-form-row">
+        <input placeholder="APY % (optional)" type="number" step="0.01" value={apy} onChange={(e) => setApy(e.target.value)} />
+        <input
+          placeholder="Projection years"
+          type="number"
+          value={projectionYears}
+          onChange={(e) => setProjectionYears(e.target.value)}
+        />
+        <input
+          placeholder="Projected value (optional)"
+          type="number"
+          step="0.01"
+          value={targetProjectedValue}
+          onChange={(e) => setTargetProjectedValue(e.target.value)}
+        />
+        <button onClick={handleSave}>Save</button>
+      </div>
+      {error && <div className="row-error">{error}</div>}
+    </div>
+  );
+}
+
 function HoldingRow({
   holding,
   accountName,
@@ -358,6 +437,7 @@ function HoldingRow({
   onChanged: () => void;
 }) {
   const [status, setStatus] = useState<string | null>(null);
+  const [managing, setManaging] = useState(false);
 
   async function handleRefresh() {
     setStatus("Checking price…");
@@ -377,37 +457,55 @@ function HoldingRow({
   }
 
   return (
-    <tr>
-      <td>{holding.name}</td>
-      <td>{INVESTMENT_TYPE_LABELS[holding.investment_type]}</td>
-      <td>{accountName}</td>
-      <td>{currency(Number(holding.current_value))}</td>
-      <td>
-        {holding.symbol ? (
-          <>
-            {holding.current_price ? currency(Number(holding.current_price)) : "—"}{" "}
-            <button className="link-button" onClick={handleRefresh}>
-              check price
-            </button>
-            {status && <div className="row-error">{status}</div>}
-          </>
-        ) : (
-          <span className="muted">no ticker</span>
-        )}
-      </td>
-      <td>
-        {holding.computed_projected_value
-          ? `${currency(Number(holding.computed_projected_value))}${
-              holding.projection_years ? ` (${holding.projection_years}y)` : ""
-            }`
-          : "—"}
-      </td>
-      <td>
-        <button className="link-button link-button-danger" onClick={handleDelete}>
-          delete
-        </button>
-      </td>
-    </tr>
+    <Fragment>
+      <tr>
+        <td>{holding.name}</td>
+        <td>{INVESTMENT_TYPE_LABELS[holding.investment_type]}</td>
+        <td>{accountName}</td>
+        <td>{currency(Number(holding.current_value))}</td>
+        <td>
+          {holding.symbol ? (
+            <>
+              {holding.current_price ? currency(Number(holding.current_price)) : "—"}{" "}
+              <button className="link-button" onClick={handleRefresh}>
+                check price
+              </button>
+              {status && <div className="row-error">{status}</div>}
+            </>
+          ) : (
+            <span className="muted">no ticker</span>
+          )}
+        </td>
+        <td>
+          {holding.computed_projected_value
+            ? `${currency(Number(holding.computed_projected_value))}${
+                holding.projection_years ? ` (${holding.projection_years}y)` : ""
+              }`
+            : "—"}
+        </td>
+        <td>
+          <button className="link-button" onClick={() => setManaging((m) => !m)}>
+            {managing ? "close" : "manage"}
+          </button>
+          <button className="link-button link-button-danger" onClick={handleDelete}>
+            delete
+          </button>
+        </td>
+      </tr>
+      {managing && (
+        <tr>
+          <td colSpan={7} className="manage-row">
+            <EditHoldingForm
+              holding={holding}
+              onSaved={() => {
+                setManaging(false);
+                onChanged();
+              }}
+            />
+          </td>
+        </tr>
+      )}
+    </Fragment>
   );
 }
 

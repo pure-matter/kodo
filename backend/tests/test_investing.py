@@ -43,6 +43,22 @@ def test_holding_current_value_uses_manual_value_for_non_share_assets():
     assert holding_current_value(holding) == Decimal("65000")
 
 
+def test_holding_current_value_prefers_manual_value_over_cost_basis_even_with_shares():
+    """RSUs or any ticker-less, share-based holding: a $0 cost basis (the
+    normal case for an RSU grant) combined with the shares x cost_basis
+    fallback used to silently produce $0 - or, worse, a nonsense number if
+    cost_basis held something else - even when the user had entered their
+    own current value. The manual override must win once it's set."""
+    holding = Holding(
+        investment_type=InvestmentType.STOCK,
+        name="Apple RSUs",
+        shares=Decimal("50"),
+        cost_basis=Decimal("0"),
+        manual_value=Decimal("9500"),
+    )
+    assert holding_current_value(holding) == Decimal("9500")
+
+
 def test_holding_projected_value_compounds_with_apy():
     holding = Holding(
         investment_type=InvestmentType.REAL_ESTATE,

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
@@ -15,7 +15,7 @@ vi.mock("../api/client", () => ({
       addContribution: vi.fn(),
       listContributions: vi.fn(),
     },
-    holdings: { create: vi.fn(), remove: vi.fn(), refreshPrice: vi.fn() },
+    holdings: { create: vi.fn(), update: vi.fn(), remove: vi.fn(), refreshPrice: vi.fn() },
     uninvestedCash: { log: vi.fn() },
     recurringInvestments: { create: vi.fn(), remove: vi.fn() },
   },
@@ -129,6 +129,23 @@ describe("Looking Ahead page", () => {
 
     expect(await screen.findByText("Apple", { selector: "td" })).toBeInTheDocument();
     expect(screen.getByText("$1,500.00")).toBeInTheDocument();
+  });
+
+  it("editing a holding's manual value calls the API with the override", async () => {
+    vi.mocked(api.holdings.update).mockResolvedValue({ ...HOLDING, manual_value: "9500.00" });
+    const user = userEvent.setup();
+    render(<LookingAhead />);
+    await goToTab(user, "Investments");
+
+    await screen.findByText("Apple", { selector: "td" });
+    await user.click(screen.getByText("manage"));
+    const editForm = screen.getByText("Edit holding").closest("div")!;
+    await user.type(within(editForm).getByPlaceholderText("Current total value (optional)"), "9500");
+    await user.click(within(editForm).getByText("Save"));
+
+    await waitFor(() =>
+      expect(api.holdings.update).toHaveBeenCalledWith(1, expect.objectContaining({ manual_value: "9500" })),
+    );
   });
 
   it("creating a goal calls the API with the entered fields", async () => {

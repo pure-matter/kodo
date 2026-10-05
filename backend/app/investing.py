@@ -17,14 +17,23 @@ TWO_PLACES = Decimal("0.01")
 
 
 def holding_current_value(holding: Holding) -> Decimal:
-    """Market value for a priced holding (shares x current price, falling
-    back to cost basis if no price has been fetched yet), or the
-    hand-entered value for anything else."""
-    if holding.shares is not None:
-        price = holding.current_price if holding.current_price is not None else holding.cost_basis
-        return (holding.shares * price).quantize(TWO_PLACES)
+    """Current value, in priority order:
+    1. shares x live price, when a ticker price has actually been fetched
+    2. the user's own manual_value override, when they've set one -
+       this applies even when `shares` is set (e.g. RSUs/ETFs with no
+       ticker), since a deliberate "here's what it's worth" beats a guess
+    3. shares x cost_basis, a last-resort estimate for a share-based
+       holding with neither a live price nor a manual override - clearly
+       imperfect (cost basis is what you paid, not what it's worth now,
+       and is legitimately $0 for an RSU grant) but better than nothing
+    4. cost_basis alone, for a non-share holding with no manual_value
+    """
+    if holding.shares is not None and holding.current_price is not None:
+        return (holding.shares * holding.current_price).quantize(TWO_PLACES)
     if holding.manual_value is not None:
         return holding.manual_value
+    if holding.shares is not None:
+        return (holding.shares * holding.cost_basis).quantize(TWO_PLACES)
     return holding.cost_basis
 
 
