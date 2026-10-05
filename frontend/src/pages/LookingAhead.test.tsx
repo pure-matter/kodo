@@ -131,6 +131,36 @@ describe("Looking Ahead page", () => {
     expect(screen.getByText("$1,500.00")).toBeInTheDocument();
   });
 
+  it("flags a holding's value as a rough estimate when there's no live price or manual override", async () => {
+    const unpriced = {
+      ...HOLDING,
+      id: 2,
+      name: "Fidelity low priced",
+      symbol: "FLPSX",
+      current_price: null,
+      current_price_updated_at: null,
+      current_value: "1000.00",
+    };
+    vi.mocked(api.lookingAhead.summary).mockResolvedValue({ ...SUMMARY, holdings: [unpriced] });
+    const user = userEvent.setup();
+    render(<LookingAhead />);
+    await goToTab(user, "Investments");
+
+    await screen.findByText("Fidelity low priced", { selector: "td" });
+    expect(screen.getByText("(rough estimate)")).toBeInTheDocument();
+  });
+
+  it("does not flag a holding's value once a manual override is set", async () => {
+    const overridden = { ...HOLDING, current_price: null, current_price_updated_at: null, manual_value: "6000.00" };
+    vi.mocked(api.lookingAhead.summary).mockResolvedValue({ ...SUMMARY, holdings: [overridden] });
+    const user = userEvent.setup();
+    render(<LookingAhead />);
+    await goToTab(user, "Investments");
+
+    await screen.findByText("Apple", { selector: "td" });
+    expect(screen.queryByText("(rough estimate)")).not.toBeInTheDocument();
+  });
+
   it("editing a holding's manual value calls the API with the override", async () => {
     vi.mocked(api.holdings.update).mockResolvedValue({ ...HOLDING, manual_value: "9500.00" });
     const user = userEvent.setup();

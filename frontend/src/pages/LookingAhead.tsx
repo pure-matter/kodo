@@ -439,6 +439,11 @@ function HoldingRow({
   const [status, setStatus] = useState<string | null>(null);
   const [managing, setManaging] = useState(false);
 
+  // No live ticker price and no manual override - current_value is just
+  // shares x cost_basis, a crude placeholder rather than anything verified.
+  // Flagging it visibly beats presenting a confident-looking wrong number.
+  const isRoughEstimate = holding.shares !== null && holding.current_price === null && holding.manual_value === null;
+
   async function handleRefresh() {
     setStatus("Checking price…");
     try {
@@ -462,7 +467,18 @@ function HoldingRow({
         <td>{holding.name}</td>
         <td>{INVESTMENT_TYPE_LABELS[holding.investment_type]}</td>
         <td>{accountName}</td>
-        <td>{currency(Number(holding.current_value))}</td>
+        <td>
+          {currency(Number(holding.current_value))}
+          {isRoughEstimate && (
+            <span
+              className="muted"
+              title="No live price or manual value set - this is just shares x cost basis, which may be way off. Click manage to set a real current value, or add a ticker and check price."
+            >
+              {" "}
+              (rough estimate)
+            </span>
+          )}
+        </td>
         <td>
           {holding.symbol ? (
             <>
