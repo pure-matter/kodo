@@ -23,9 +23,14 @@ export function getSavingsStatus(contributed: number, target: number | null): Bu
   return "critical";
 }
 
+/** Deliberately not a traffic-light palette: "warning" reads the same as
+ * "good" (both still on track, just further along), and only "critical"
+ * (over budget / well behind on savings) breaks from the brand color, with
+ * a muted coral rather than an alarm red. Softer, and still legible at a
+ * glance. */
 export const STATUS_COLORS: Record<BudgetStatus, string> = {
-  good: "var(--status-good)",
-  warning: "var(--status-warning)",
-  critical: "var(--status-critical)",
+  good: "var(--brand)",
+  warning: "var(--brand)",
+  critical: "var(--status-serious)",
   neutral: "var(--text-muted)",
 };

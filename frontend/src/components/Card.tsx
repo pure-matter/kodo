@@ -1,10 +1,19 @@
-import type { PropsWithChildren } from "react";
+import type { PropsWithChildren, ReactNode } from "react";
 import "./Card.css";
 
-export function Card({ children, title }: PropsWithChildren<{ title?: string }>) {
+export function Card({
+  children,
+  title,
+  headerExtra,
+}: PropsWithChildren<{ title?: string; headerExtra?: ReactNode }>) {
   return (
     <section className="card">
-      {title && <h2 className="card-title">{title}</h2>}
+      {(title || headerExtra) && (
+        <div className="card-header">
+          {title && <h2 className="card-title">{title}</h2>}
+          {headerExtra && <span className="card-header-extra">{headerExtra}</span>}
+        </div>
+      )}
       {children}
     </section>
   );

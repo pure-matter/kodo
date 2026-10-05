@@ -27,10 +27,10 @@ const monthOptionLabel = (year: number, month: number) =>
 function bucketTotalLabel(row: SpendRow | undefined) {
   if (!row) return null;
   return (
-    <div className="bucket-total">
+    <>
       {currency(row.spent)} spent
       {row.budgeted !== null && <> / {currency(row.budgeted)} planned</>}
-    </div>
+    </>
   );
 }
 
@@ -44,8 +44,7 @@ function BudgetGroup({
   bucketTotal: SpendRow | undefined;
 }) {
   return (
-    <Card title={title}>
-      {bucketTotalLabel(bucketTotal)}
+    <Card title={title} headerExtra={bucketTotalLabel(bucketTotal)}>
       {items.map((item) => {
         const spent = Number(item.spent);
         const budgeted = item.budgeted !== null ? Number(item.budgeted) : null;
@@ -347,8 +346,7 @@ export function Dashboard() {
           <BudgetGroup title="Needs" items={needs} bucketTotal={bucketByName("Needs")} />
           <BudgetGroup title="Wants" items={wants} bucketTotal={bucketByName("Wants")} />
 
-          <Card title="Savings">
-            {bucketTotalLabel(bucketByName("Savings"))}
+          <Card title="Savings" headerExtra={bucketTotalLabel(bucketByName("Savings"))}>
             {savingsProgress.map((item) => (
               <ProgressBar
                 key={item.allocation_id}

@@ -5,9 +5,24 @@
   padding: 20px 24px;
 }
 
+.card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
 .card-title {
-  margin: 0 0 16px;
+  margin: 0;
   font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.card-header-extra {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  white-space: nowrap;
 }
