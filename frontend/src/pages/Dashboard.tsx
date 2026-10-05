@@ -6,7 +6,6 @@ import type {
   AvailableMonth,
   BudgetSummaryItem,
   MonthlyHistoryItem,
-  NetWorth,
   SavingsProgress,
 } from "../api/types";
 import { Card } from "../components/Card";
@@ -275,12 +274,11 @@ export function Dashboard() {
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [budgetSummary, setBudgetSummary] = useState<BudgetSummaryItem[] | null>(null);
   const [savingsProgress, setSavingsProgress] = useState<SavingsProgress[] | null>(null);
-  const [netWorth, setNetWorth] = useState<NetWorth | null>(null);
+  const [income, setIncome] = useState<number | null>(null);
   const [tab, setTab] = useState<DashboardTab>("overview");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.netWorth.get().then(setNetWorth).catch((err) => setError(String(err)));
     api.reports
       .availableMonths()
       .then((rows) => {
@@ -293,21 +291,27 @@ export function Dashboard() {
   }, []);
 
   useEffect(() => {
-    Promise.all([api.reports.budgetSummary(year, month), api.savings.progress(year, month)])
-      .then(([budget, savings]) => {
+    Promise.all([
+      api.reports.budgetSummary(year, month),
+      api.savings.progress(year, month),
+      api.reports.incomeSummary(year, month),
+    ])
+      .then(([budget, savings, incomeSummary]) => {
         setBudgetSummary(budget);
         setSavingsProgress(savings);
+        setIncome(Number(incomeSummary.income));
       })
       .catch((err) => setError(String(err)));
   }, [year, month]);
 
   if (error) return <Card>Couldn't load the dashboard: {error}</Card>;
-  if (!budgetSummary || !savingsProgress || !netWorth || !months) return <Card>Loading…</Card>;
+  if (!budgetSummary || !savingsProgress || income === null || !months) return <Card>Loading…</Card>;
 
   const needs = budgetSummary.filter((item) => item.group === "needs");
   const wants = budgetSummary.filter((item) => item.group === "wants");
   const bucketRows = aggregateByBucket(budgetSummary, savingsProgress);
   const bucketByName = (name: string) => bucketRows.find((r) => r.name === name);
+  const totalSpent = (bucketByName("Needs")?.spent ?? 0) + (bucketByName("Wants")?.spent ?? 0);
 
   return (
     <>
@@ -335,10 +339,10 @@ export function Dashboard() {
         <>
           <Card>
             <div className="stat-tile">
-              <span className="stat-label">Net worth</span>
-              <span className="stat-value">{currency(Number(netWorth.net_worth))}</span>
+              <span className="stat-label">Spending vs. income</span>
+              <span className="stat-value">{currency(income - totalSpent)}</span>
               <span className="stat-sub">
-                {currency(Number(netWorth.assets))} assets &minus; {currency(Number(netWorth.liabilities))} liabilities
+                {currency(totalSpent)} spent &middot; {currency(income)} income
               </span>
             </div>
           </Card>

@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import extract
+from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
 
 from .models import (
@@ -243,6 +243,25 @@ def bucket_monthly_history(db: Session, months: int) -> list[dict]:
             year -= 1
 
     return results
+
+
+def income_for_month(db: Session, year: int, month: int) -> Decimal:
+    """Total income (stored as positive amounts, unlike spend) for one
+    month - backs the Dashboard's spend-vs-income card. Not archive-aware
+    like category/savings totals are, since archiving only snapshots
+    Needs/Wants spend and savings contributions - an archived month's
+    income reads as 0, same trade-off as its raw transactions."""
+    total = (
+        db.query(func.sum(Transaction.amount))
+        .join(Category, Transaction.category_id == Category.id)
+        .filter(
+            Category.group == CategoryGroup.INCOME,
+            extract("year", Transaction.date) == year,
+            extract("month", Transaction.date) == month,
+        )
+        .scalar()
+    )
+    return total or Decimal("0")
 
 
 def available_months(db: Session) -> list[dict]:

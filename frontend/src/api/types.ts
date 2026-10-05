@@ -77,6 +77,12 @@ export interface AvailableMonth {
   month: number;
 }
 
+export interface IncomeSummary {
+  year: number;
+  month: number;
+  income: string;
+}
+
 export interface MonthlyHistoryItem {
   year: number;
   month: number;

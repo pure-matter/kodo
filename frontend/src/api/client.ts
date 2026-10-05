@@ -9,6 +9,7 @@ import type {
   GoalContribution,
   Holding,
   ImportSummary,
+  IncomeSummary,
   InvestmentType,
   LookingAheadSummary,
   MonthlyHistoryItem,
@@ -120,6 +121,8 @@ export const api = {
     bucketHistory: (months: number) =>
       request<BucketHistoryItem[]>(`/reports/bucket-history?months=${months}`),
     availableMonths: () => request<AvailableMonth[]>("/reports/available-months"),
+    incomeSummary: (year: number, month: number) =>
+      request<IncomeSummary>(`/reports/income-summary?year=${year}&month=${month}`),
     archiveMonth: (year: number, month: number) =>
       request<BudgetSummaryItem[]>("/reports/archive-month", {
         method: "POST",

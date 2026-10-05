@@ -9,6 +9,7 @@ from ..reporting import (
     available_months,
     budget_summary,
     bucket_monthly_history,
+    income_for_month,
     monthly_history,
 )
 from ..schemas import (
@@ -16,6 +17,7 @@ from ..schemas import (
     AvailableMonthOut,
     BucketHistoryItem,
     BudgetSummaryItem,
+    IncomeSummaryOut,
     MonthlyHistoryItem,
 )
 
@@ -34,6 +36,15 @@ def get_budget_summary(
 @router.get("/available-months", response_model=list[AvailableMonthOut])
 def get_available_months(db: Session = Depends(get_db)):
     return available_months(db)
+
+
+@router.get("/income-summary", response_model=IncomeSummaryOut)
+def get_income_summary(
+    year: int = Query(default_factory=lambda: date.today().year),
+    month: int = Query(default_factory=lambda: date.today().month),
+    db: Session = Depends(get_db),
+):
+    return {"year": year, "month": month, "income": income_for_month(db, year, month)}
 
 
 @router.get("/monthly-history", response_model=list[MonthlyHistoryItem])

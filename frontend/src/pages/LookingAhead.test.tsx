@@ -8,6 +8,7 @@ vi.mock("../api/client", () => ({
   api: {
     accounts: { list: vi.fn() },
     lookingAhead: { summary: vi.fn() },
+    netWorth: { get: vi.fn() },
     savingsGoals: {
       create: vi.fn(),
       remove: vi.fn(),
@@ -67,6 +68,8 @@ const HOLDING = {
   computed_projected_value: null,
 };
 
+const NET_WORTH = { as_of: "2026-10-01", assets: "10000", liabilities: "2000", net_worth: "8000" };
+
 const SUMMARY = {
   goals: [ACTIVE_GOAL],
   achieved_goals: [ACHIEVED_GOAL],
@@ -81,27 +84,49 @@ const SUMMARY = {
 beforeEach(() => {
   vi.mocked(api.accounts.list).mockResolvedValue(ACCOUNTS);
   vi.mocked(api.lookingAhead.summary).mockResolvedValue(SUMMARY);
+  vi.mocked(api.netWorth.get).mockResolvedValue(NET_WORTH);
 });
 
 const goalCardName = () => screen.findByText("Emergency fund", { selector: "span.goal-card-name" });
 
+async function goToTab(user: ReturnType<typeof userEvent.setup>, label: "Savings" | "Investments") {
+  await screen.findByText("Net worth");
+  await user.click(screen.getByText(label));
+}
+
 describe("Looking Ahead page", () => {
-  it("shows active goals with progress and required monthly contribution", async () => {
+  it("shows net worth and the portfolio breakdown in the Overview tab by default", async () => {
     render(<LookingAhead />);
+    expect(await screen.findByText("$8,000.00")).toBeInTheDocument();
+    expect(screen.getByText("Portfolio breakdown")).toBeInTheDocument();
+    expect(screen.getByText(/Total portfolio value: \$1,500\.00/)).toBeInTheDocument();
+  });
+
+  it("shows active goals with progress and required monthly contribution on the Savings tab", async () => {
+    const user = userEvent.setup();
+    render(<LookingAhead />);
+    await goToTab(user, "Savings");
+
     expect(await goalCardName()).toBeInTheDocument();
     expect(screen.getByText(/\$1,000\.00 \/ \$5,000\.00/)).toBeInTheDocument();
     expect(screen.getByText(/need \$333\.33\/month/)).toBeInTheDocument();
   });
 
   it("shows achieved goals with a met badge, separate from active goals", async () => {
+    const user = userEvent.setup();
     render(<LookingAhead />);
+    await goToTab(user, "Savings");
     await goalCardName();
+
     expect(screen.getByText("New laptop")).toBeInTheDocument();
     expect(screen.getByText("✓ met")).toBeInTheDocument();
   });
 
-  it("lists holdings grouped by type with their current value", async () => {
+  it("lists holdings grouped by type with their current value on the Investments tab", async () => {
+    const user = userEvent.setup();
     render(<LookingAhead />);
+    await goToTab(user, "Investments");
+
     expect(await screen.findByText("Apple", { selector: "td" })).toBeInTheDocument();
     expect(screen.getByText("$1,500.00")).toBeInTheDocument();
   });
@@ -110,6 +135,7 @@ describe("Looking Ahead page", () => {
     vi.mocked(api.savingsGoals.create).mockResolvedValue(ACTIVE_GOAL);
     const user = userEvent.setup();
     render(<LookingAhead />);
+    await goToTab(user, "Savings");
 
     await goalCardName();
     await user.type(screen.getByPlaceholderText("Goal name"), "House down payment");
@@ -127,6 +153,7 @@ describe("Looking Ahead page", () => {
     vi.mocked(api.holdings.refreshPrice).mockResolvedValue(HOLDING);
     const user = userEvent.setup();
     render(<LookingAhead />);
+    await goToTab(user, "Investments");
 
     await screen.findByText("Apple", { selector: "td" });
     await user.click(screen.getByText("check price"));

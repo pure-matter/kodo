@@ -10,15 +10,13 @@ vi.mock("../api/client", () => ({
     reports: {
       budgetSummary: vi.fn(),
       availableMonths: vi.fn(),
+      incomeSummary: vi.fn(),
       monthlyHistory: vi.fn(),
       bucketHistory: vi.fn(),
     },
     savings: { progress: vi.fn() },
-    netWorth: { get: vi.fn() },
   },
 }));
-
-const NET_WORTH = { as_of: "2026-10-01", assets: "10000", liabilities: "2000", net_worth: "8000" };
 
 const BUDGET = [
   { category_id: 1, category_name: "Groceries", group: "needs" as const, budgeted: "400", spent: "150" },
@@ -37,12 +35,16 @@ function renderDashboard() {
 
 beforeEach(() => {
   const today = new Date();
-  vi.mocked(api.netWorth.get).mockResolvedValue(NET_WORTH);
   vi.mocked(api.reports.availableMonths).mockResolvedValue([
     { year: today.getFullYear(), month: today.getMonth() + 1 },
     { year: today.getFullYear(), month: today.getMonth() || 12 },
   ]);
   vi.mocked(api.reports.budgetSummary).mockResolvedValue(BUDGET);
+  vi.mocked(api.reports.incomeSummary).mockResolvedValue({
+    year: today.getFullYear(),
+    month: today.getMonth() + 1,
+    income: "3000",
+  });
   vi.mocked(api.savings.progress).mockResolvedValue(SAVINGS);
   vi.mocked(api.reports.monthlyHistory).mockResolvedValue([
     { year: 2026, month: 9, category_id: 1, category_name: "Groceries", spent: "150" },
@@ -53,9 +55,10 @@ beforeEach(() => {
 });
 
 describe("Dashboard page", () => {
-  it("shows net worth and budget groups in the Overview tab by default", async () => {
+  it("shows spending vs. income and budget groups in the Overview tab by default", async () => {
     renderDashboard();
-    expect(await screen.findByText("$8,000.00")).toBeInTheDocument();
+    expect(await screen.findByText("$2,800.00")).toBeInTheDocument();
+    expect(screen.getByText("$200.00 spent · $3,000.00 income")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Needs" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Wants" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Savings" })).toBeInTheDocument();

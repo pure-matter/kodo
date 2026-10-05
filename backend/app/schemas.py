@@ -168,6 +168,12 @@ class AvailableMonthOut(BaseModel):
     month: int
 
 
+class IncomeSummaryOut(BaseModel):
+    year: int
+    month: int
+    income: Decimal
+
+
 class MonthlyHistoryItem(BaseModel):
     year: int
     month: int

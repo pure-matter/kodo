@@ -7,6 +7,7 @@ import type {
   Holding,
   InvestmentType,
   LookingAheadSummary,
+  NetWorth,
   PortfolioSlice,
   RecurringFrequency,
   RecurringInvestment,
@@ -681,9 +682,13 @@ function RecurringTable({
 
 // --- Page ---------------------------------------------------------------------
 
+type LookingAheadTab = "overview" | "savings" | "investments";
+
 export function LookingAhead() {
   const [summary, setSummary] = useState<LookingAheadSummary | null>(null);
   const [accounts, setAccounts] = useState<Account[] | null>(null);
+  const [netWorth, setNetWorth] = useState<NetWorth | null>(null);
+  const [tab, setTab] = useState<LookingAheadTab>("overview");
   const [error, setError] = useState<string | null>(null);
 
   function refresh() {
@@ -693,79 +698,108 @@ export function LookingAhead() {
   useEffect(() => {
     refresh();
     api.accounts.list().then(setAccounts).catch((err) => setError(String(err)));
+    api.netWorth.get().then(setNetWorth).catch((err) => setError(String(err)));
   }, []);
 
   if (error) return <Card>Couldn't load Looking Ahead: {error}</Card>;
-  if (!summary || !accounts) return <Card>Loading…</Card>;
+  if (!summary || !accounts || !netWorth) return <Card>Loading…</Card>;
 
   const investmentAccounts = accounts.filter((a) => a.type === "investment");
 
   return (
     <>
-      <Card title="Savings goals">
-        <AddGoalForm accounts={accounts} onCreated={refresh} />
-        {summary.goals.length === 0 ? (
-          <span className="muted">No active goals yet.</span>
-        ) : (
-          <div className="goal-grid">
-            {summary.goals.map((g) => (
-              <GoalCard key={g.id} goal={g} onChanged={refresh} />
-            ))}
-          </div>
-        )}
-        {summary.achieved_goals.length > 0 && (
-          <>
-            <h3 className="category-group-title">Achieved</h3>
+      <div className="segmented-control">
+        <button className={tab === "overview" ? "segmented-active" : ""} onClick={() => setTab("overview")}>
+          Overview
+        </button>
+        <button className={tab === "savings" ? "segmented-active" : ""} onClick={() => setTab("savings")}>
+          Savings
+        </button>
+        <button className={tab === "investments" ? "segmented-active" : ""} onClick={() => setTab("investments")}>
+          Investments
+        </button>
+      </div>
+
+      {tab === "overview" ? (
+        <>
+          <Card>
+            <div className="stat-tile">
+              <span className="stat-label">Net worth</span>
+              <span className="stat-value">{currency(Number(netWorth.net_worth))}</span>
+              <span className="stat-sub">
+                {currency(Number(netWorth.assets))} assets &minus; {currency(Number(netWorth.liabilities))} liabilities
+              </span>
+            </div>
+          </Card>
+
+          <Card title="Portfolio breakdown">
+            <PortfolioBreakdown byType={summary.by_type} byAccount={summary.by_account} />
+            <div className="goal-meta">Total portfolio value: {currency(Number(summary.total_portfolio_value))}</div>
+          </Card>
+        </>
+      ) : tab === "savings" ? (
+        <Card title="Savings goals">
+          <AddGoalForm accounts={accounts} onCreated={refresh} />
+          {summary.goals.length === 0 ? (
+            <span className="muted">No active goals yet.</span>
+          ) : (
             <div className="goal-grid">
-              {summary.achieved_goals.map((g) => (
+              {summary.goals.map((g) => (
                 <GoalCard key={g.id} goal={g} onChanged={refresh} />
               ))}
             </div>
-          </>
-        )}
-      </Card>
-
-      <Card title="Investments">
-        <AddHoldingForm accounts={accounts} onCreated={refresh} />
-        <HoldingsSection holdings={summary.holdings} accounts={accounts} onChanged={refresh} />
-      </Card>
-
-      <Card title="Portfolio breakdown">
-        <PortfolioBreakdown byType={summary.by_type} byAccount={summary.by_account} />
-        <div className="goal-meta">Total portfolio value: {currency(Number(summary.total_portfolio_value))}</div>
-      </Card>
-
-      <Card title="Uninvested cash">
-        {investmentAccounts.length === 0 ? (
-          <span className="muted">Add an investment account to track uninvested cash.</span>
-        ) : (
-          <>
-            <AddUninvestedCashForm accounts={investmentAccounts} onLogged={refresh} />
-            {summary.uninvested_cash.length === 0 ? (
-              <span className="muted">Nothing logged yet.</span>
-            ) : (
-              <ul className="plain-list">
-                {summary.uninvested_cash.map((entry) => (
-                  <li key={entry.id}>
-                    {accounts.find((a) => a.id === entry.account_id)?.name ?? "Unknown"}:{" "}
-                    {currency(Number(entry.amount))} as of {monthDay(entry.date)}
-                  </li>
+          )}
+          {summary.achieved_goals.length > 0 && (
+            <>
+              <h3 className="category-group-title">Achieved</h3>
+              <div className="goal-grid">
+                {summary.achieved_goals.map((g) => (
+                  <GoalCard key={g.id} goal={g} onChanged={refresh} />
                 ))}
-              </ul>
-            )}
-          </>
-        )}
-      </Card>
+              </div>
+            </>
+          )}
+        </Card>
+      ) : (
+        <>
+          <Card title="Investments">
+            <AddHoldingForm accounts={accounts} onCreated={refresh} />
+            <HoldingsSection holdings={summary.holdings} accounts={accounts} onChanged={refresh} />
+          </Card>
 
-      <Card title="Recurring investments">
-        <AddRecurringForm goals={summary.goals} holdings={summary.holdings} onCreated={refresh} />
-        <RecurringTable
-          recurring={summary.recurring_investments}
-          goals={summary.goals}
-          holdings={summary.holdings}
-          onChanged={refresh}
-        />
-      </Card>
+          <Card title="Uninvested cash">
+            {investmentAccounts.length === 0 ? (
+              <span className="muted">Add an investment account to track uninvested cash.</span>
+            ) : (
+              <>
+                <AddUninvestedCashForm accounts={investmentAccounts} onLogged={refresh} />
+                {summary.uninvested_cash.length === 0 ? (
+                  <span className="muted">Nothing logged yet.</span>
+                ) : (
+                  <ul className="plain-list">
+                    {summary.uninvested_cash.map((entry) => (
+                      <li key={entry.id}>
+                        {accounts.find((a) => a.id === entry.account_id)?.name ?? "Unknown"}:{" "}
+                        {currency(Number(entry.amount))} as of {monthDay(entry.date)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </Card>
+
+          <Card title="Recurring investments">
+            <AddRecurringForm goals={summary.goals} holdings={summary.holdings} onCreated={refresh} />
+            <RecurringTable
+              recurring={summary.recurring_investments}
+              goals={summary.goals}
+              holdings={summary.holdings}
+              onChanged={refresh}
+            />
+          </Card>
+        </>
+      )}
     </>
   );
 }
