@@ -4,6 +4,7 @@ import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Toolti
 import { api } from "../api/client";
 import type {
   AvailableMonth,
+  BudgetReallocation,
   BudgetSummaryItem,
   MonthlyHistoryItem,
   SavingsProgress,
@@ -78,6 +79,7 @@ function MonthPicker({
   return (
     <select
       className="month-picker"
+      aria-label="Month"
       value={`${year}-${month}`}
       onChange={(e) => {
         const [y, m] = e.target.value.split("-").map(Number);
@@ -265,6 +267,106 @@ function HistoryChart() {
   );
 }
 
+function ReallocationCard({
+  year,
+  month,
+  categories,
+  onChanged,
+}: {
+  year: number;
+  month: number;
+  categories: { id: number; name: string }[];
+  onChanged: () => void;
+}) {
+  const [reallocations, setReallocations] = useState<BudgetReallocation[] | null>(null);
+  const [fromId, setFromId] = useState(categories[0]?.id ?? 0);
+  const [toId, setToId] = useState(categories[1]?.id ?? categories[0]?.id ?? 0);
+  const [amount, setAmount] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  function refresh() {
+    api.reports.reallocations.list(year, month).then(setReallocations).catch((err) => setError(String(err)));
+  }
+
+  useEffect(refresh, [year, month]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await api.reports.reallocations.create({
+        year,
+        month,
+        from_category_id: fromId,
+        to_category_id: toId,
+        amount,
+      });
+      setAmount("");
+      refresh();
+      onChanged();
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
+  async function handleUndo(id: number) {
+    await api.reports.reallocations.remove(id);
+    refresh();
+    onChanged();
+  }
+
+  return (
+    <Card title="Reallocate budget">
+      <p className="archive-hint">
+        Move budgeted (not spent) dollars from a category with room to one that's over, for{" "}
+        {monthOptionLabel(year, month)} only - doesn't touch any transactions.
+      </p>
+      <form className="inline-form" onSubmit={handleSubmit}>
+        <select value={fromId} onChange={(e) => setFromId(Number(e.target.value))}>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <span>&rarr;</span>
+        <select value={toId} onChange={(e) => setToId(Number(e.target.value))}>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <input
+          placeholder="Amount"
+          type="number"
+          step="0.01"
+          min="0.01"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          required
+        />
+        <button type="submit">Reallocate</button>
+      </form>
+      {error && <div className="row-error">{error}</div>}
+      {!reallocations || reallocations.length === 0 ? (
+        <span className="muted">No reallocations this month.</span>
+      ) : (
+        <ul className="plain-list">
+          {reallocations.map((r) => (
+            <li key={r.id}>
+              {currency(Number(r.amount))}: {r.from_category_name} &rarr; {r.to_category_name}{" "}
+              <button className="link-button link-button-danger" onClick={() => handleUndo(r.id)}>
+                undo
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
 type DashboardTab = "overview" | "spending";
 
 export function Dashboard() {
@@ -290,7 +392,7 @@ export function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
+  function refreshMonthData() {
     Promise.all([
       api.reports.budgetSummary(year, month),
       api.savings.progress(year, month),
@@ -302,7 +404,9 @@ export function Dashboard() {
         setIncome(Number(incomeSummary.income));
       })
       .catch((err) => setError(String(err)));
-  }, [year, month]);
+  }
+
+  useEffect(refreshMonthData, [year, month]);
 
   if (error) return <Card>Couldn't load the dashboard: {error}</Card>;
   if (!budgetSummary || !savingsProgress || income === null || !months) return <Card>Loading…</Card>;
@@ -362,6 +466,13 @@ export function Dashboard() {
               />
             ))}
           </Card>
+
+          <ReallocationCard
+            year={year}
+            month={month}
+            categories={[...needs, ...wants].map((c) => ({ id: c.category_id, name: c.category_name }))}
+            onChanged={refreshMonthData}
+          />
         </>
       ) : (
         <>

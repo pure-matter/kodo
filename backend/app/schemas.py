@@ -174,6 +174,25 @@ class IncomeSummaryOut(BaseModel):
     income: Decimal
 
 
+class BudgetReallocationCreate(BaseModel):
+    year: int
+    month: int
+    from_category_id: int
+    to_category_id: int
+    amount: Decimal
+
+
+class BudgetReallocationOut(BaseModel):
+    id: int
+    year: int
+    month: int
+    from_category_id: int
+    from_category_name: str
+    to_category_id: int
+    to_category_name: str
+    amount: Decimal
+
+
 class MonthlyHistoryItem(BaseModel):
     year: int
     month: int

@@ -65,6 +65,17 @@ export interface BudgetSummaryItem {
   spent: string;
 }
 
+export interface BudgetReallocation {
+  id: number;
+  year: number;
+  month: number;
+  from_category_id: number;
+  from_category_name: string;
+  to_category_id: number;
+  to_category_name: string;
+  amount: string;
+}
+
 export interface NetWorth {
   as_of: string;
   assets: string;

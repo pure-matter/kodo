@@ -83,6 +83,27 @@ class Category(Base):
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="category")
 
 
+class BudgetReallocation(Base):
+    """A one-month shift of budgeted (not spent) dollars from one category
+    to another - e.g. "Entertainment had room, Groceries went over, move
+    $50." Purely a budget-math adjustment: never touches transactions, and
+    only affects the `budgeted` figure for the (year, month) it's logged
+    against, via reporting.budget_summary."""
+
+    __tablename__ = "budget_reallocations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    year: Mapped[int] = mapped_column()
+    month: Mapped[int] = mapped_column()
+    from_category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
+    to_category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
+    amount: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    from_category: Mapped["Category"] = relationship(foreign_keys=[from_category_id])
+    to_category: Mapped["Category"] = relationship(foreign_keys=[to_category_id])
+
+
 class CategoryRule(Base):
     """Matches a transaction description substring (case-insensitive) to a
     category. Rules are applied in ascending `priority` order and the first

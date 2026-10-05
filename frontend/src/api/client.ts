@@ -2,6 +2,7 @@ import type {
   Account,
   AvailableMonth,
   BucketHistoryItem,
+  BudgetReallocation,
   BudgetSummaryItem,
   Category,
   CategoryGroup,
@@ -128,6 +129,13 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ year, month }),
       }),
+    reallocations: {
+      list: (year: number, month: number) =>
+        request<BudgetReallocation[]>(`/reports/reallocations?year=${year}&month=${month}`),
+      create: (data: { year: number; month: number; from_category_id: number; to_category_id: number; amount: string }) =>
+        request<BudgetReallocation>("/reports/reallocations", { method: "POST", body: JSON.stringify(data) }),
+      remove: (id: number) => request<void>(`/reports/reallocations/${id}`, { method: "DELETE" }),
+    },
   },
   savings: {
     list: () => request<SavingsAllocation[]>("/savings-allocations"),

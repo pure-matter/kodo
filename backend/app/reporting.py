@@ -20,6 +20,7 @@ from .models import (
     Account,
     AccountType,
     BalanceSnapshot,
+    BudgetReallocation,
     Category,
     CategoryGroup,
     MonthlySavingsSummary,
@@ -31,12 +32,25 @@ from .models import (
 _ASSET_TYPES = {AccountType.CHECKING, AccountType.SAVINGS, AccountType.INVESTMENT}
 
 
+def _reallocation_deltas(db: Session, year: int, month: int) -> dict[int, Decimal]:
+    """Net budget shift per category for one month: positive for a category
+    that received a reallocation, negative for one that gave money away.
+    Used to adjust budget_summary's `budgeted` figure - reallocations never
+    touch transactions or a category's own monthly_budget."""
+    deltas: dict[int, Decimal] = {}
+    for realloc in db.query(BudgetReallocation).filter_by(year=year, month=month):
+        deltas[realloc.to_category_id] = deltas.get(realloc.to_category_id, Decimal("0")) + realloc.amount
+        deltas[realloc.from_category_id] = deltas.get(realloc.from_category_id, Decimal("0")) - realloc.amount
+    return deltas
+
+
 def budget_summary(db: Session, year: int, month: int) -> list[dict]:
     categories = (
         db.query(Category)
         .filter(Category.group.in_([CategoryGroup.NEEDS, CategoryGroup.WANTS]))
         .all()
     )
+    deltas = _reallocation_deltas(db, year, month)
 
     results = []
     for category in categories:
@@ -52,16 +66,61 @@ def budget_summary(db: Session, year: int, month: int) -> list[dict]:
         # Spend is stored negative (money out); report it as a positive
         # "amount spent" since that's what a budget comparison expects.
         spent = -sum((t.amount for t in transactions), Decimal("0"))
+
+        delta = deltas.get(category.id, Decimal("0"))
+        if category.monthly_budget is None and delta == 0:
+            budgeted = None
+        else:
+            budgeted = (category.monthly_budget or Decimal("0")) + delta
+
         results.append(
             {
                 "category_id": category.id,
                 "category_name": category.name,
                 "group": category.group,
-                "budgeted": category.monthly_budget,
+                "budgeted": budgeted,
                 "spent": spent,
             }
         )
     return results
+
+
+def create_reallocation(
+    db: Session, year: int, month: int, from_category_id: int, to_category_id: int, amount: Decimal
+) -> BudgetReallocation:
+    if from_category_id == to_category_id:
+        raise ValueError("Can't reallocate a category's budget to itself.")
+    if amount <= 0:
+        raise ValueError("Reallocation amount must be positive.")
+
+    spendable = {CategoryGroup.NEEDS, CategoryGroup.WANTS}
+    for category_id in (from_category_id, to_category_id):
+        category = db.get(Category, category_id)
+        if category is None:
+            raise ValueError(f"Category {category_id} not found.")
+        if category.group not in spendable:
+            raise ValueError(f'"{category.name}" isn\'t a Needs/Wants category - reallocation only applies there.')
+
+    realloc = BudgetReallocation(
+        year=year,
+        month=month,
+        from_category_id=from_category_id,
+        to_category_id=to_category_id,
+        amount=amount,
+    )
+    db.add(realloc)
+    db.commit()
+    db.refresh(realloc)
+    return realloc
+
+
+def list_reallocations(db: Session, year: int, month: int) -> list[BudgetReallocation]:
+    return (
+        db.query(BudgetReallocation)
+        .filter_by(year=year, month=month)
+        .order_by(BudgetReallocation.created_at)
+        .all()
+    )
 
 
 def savings_progress(db: Session, year: int, month: int) -> list[dict]:
