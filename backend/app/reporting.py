@@ -16,6 +16,7 @@ from decimal import Decimal
 from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
 
+from .investing import goal_contributed, holding_current_value
 from .models import (
     Account,
     AccountType,
@@ -23,10 +24,13 @@ from .models import (
     BudgetReallocation,
     Category,
     CategoryGroup,
+    Holding,
     MonthlySavingsSummary,
     MonthlySpendSummary,
     SavingsAllocation,
+    SavingsGoal,
     Transaction,
+    UninvestedCash,
 )
 
 _ASSET_TYPES = {AccountType.CHECKING, AccountType.SAVINGS, AccountType.INVESTMENT}
@@ -340,10 +344,36 @@ def available_months(db: Session) -> list[dict]:
 
 
 def net_worth(db: Session) -> dict:
+    """Assets are sourced per account, preferring the most specific data
+    available: an investment account with Holdings logged uses their live
+    total (+ any uninvested cash) instead of a manual BalanceSnapshot, since
+    the Holdings/Investments tab is the more accurate, detailed picture once
+    it's in use. Accounts with no holdings fall back to BalanceSnapshot,
+    same as checking/savings/credit/loan always have.
+
+    Savings goal contributions are added separately, but only for goals
+    with no linked_account_id - a goal linked to an account is assumed to
+    be money already sitting in (and counted via) that account, so adding
+    it again here would double-count it."""
     assets = Decimal("0")
     liabilities = Decimal("0")
 
+    holdings_by_account: dict[int, list[Holding]] = {}
+    for holding in db.query(Holding).all():
+        holdings_by_account.setdefault(holding.account_id, []).append(holding)
+
+    latest_uninvested_by_account: dict[int, Decimal] = {}
+    for entry in db.query(UninvestedCash).order_by(UninvestedCash.date.desc()):
+        latest_uninvested_by_account.setdefault(entry.account_id, entry.amount)
+
     for account in db.query(Account).all():
+        account_holdings = holdings_by_account.get(account.id)
+        if account.type == AccountType.INVESTMENT and account_holdings:
+            total = sum((holding_current_value(h) for h in account_holdings), Decimal("0"))
+            total += latest_uninvested_by_account.get(account.id, Decimal("0"))
+            assets += total
+            continue
+
         latest = (
             db.query(BalanceSnapshot)
             .filter_by(account_id=account.id)
@@ -356,6 +386,10 @@ def net_worth(db: Session) -> dict:
             assets += latest.balance
         else:
             liabilities += latest.balance
+
+    for goal in db.query(SavingsGoal).all():
+        if goal.linked_account_id is None:
+            assets += goal_contributed(goal)
 
     return {
         "as_of": date.today(),

@@ -1,5 +1,17 @@
 import { Fragment, useEffect, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { api } from "../api/client";
 import type {
   Account,
@@ -595,6 +607,10 @@ function PortfolioBreakdown({ byType, byAccount }: { byType: PortfolioSlice[]; b
   const slices = (view === "type" ? byType : byAccount).map((s) => ({
     ...s,
     label: view === "type" ? INVESTMENT_TYPE_LABELS[s.label as InvestmentType] ?? s.label : s.label,
+    // Recharts' pie layout needs an actual number to compute each slice's
+    // angle - the API sends Decimals as strings, which silently broke the
+    // arc math (every slice rendered with 0 size) when passed through as-is.
+    value: Number(s.value),
   }));
 
   if (byType.length === 0) return <span className="muted">Add investments to see a portfolio breakdown.</span>;
@@ -609,23 +625,30 @@ function PortfolioBreakdown({ byType, byAccount }: { byType: PortfolioSlice[]; b
           By account
         </button>
       </div>
-      <ResponsiveContainer width="100%" height={Math.max(slices.length * 36, 120)}>
-        <BarChart data={slices} layout="vertical" margin={{ left: 24, right: 24 }}>
-          <CartesianGrid horizontal={false} stroke="var(--border-hairline)" />
-          <XAxis type="number" tickFormatter={(v) => currency(v)} tick={{ fontSize: 12 }} />
-          <YAxis type="category" dataKey="label" width={110} tick={{ fontSize: 12 }} />
-          <Tooltip
-            formatter={(value, _name, item) => [
-              `${currency(Number(value))} (${item.payload.percent_of_total}%)`,
-              "value",
-            ]}
-          />
-          <Bar dataKey="value" radius={4}>
+      <ResponsiveContainer width="100%" height={320}>
+        <PieChart>
+          <Pie
+            data={slices}
+            dataKey="value"
+            nameKey="label"
+            cx="50%"
+            cy="50%"
+            outerRadius={110}
+            labelLine={false}
+            label={(entry) => `${Math.round((entry.percent ?? 0) * 100)}%`}
+          >
             {slices.map((s, i) => (
               <Cell key={s.label} fill={SLICE_COLORS[i % SLICE_COLORS.length]} />
             ))}
-          </Bar>
-        </BarChart>
+          </Pie>
+          <Tooltip
+            formatter={(value, _name, item) => [
+              `${currency(Number(value))} (${item.payload.percent_of_total}%)`,
+              item.payload.label,
+            ]}
+          />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+        </PieChart>
       </ResponsiveContainer>
     </>
   );
@@ -806,13 +829,17 @@ export function LookingAhead() {
   const [error, setError] = useState<string | null>(null);
 
   function refresh() {
+    // Net worth folds in holdings/savings-goal data (see backend), so it
+    // needs to stay in step with every action that can change those, not
+    // just the page's initial load.
     api.lookingAhead.summary().then(setSummary).catch((err) => setError(String(err)));
+    api.netWorth.get().then(setNetWorth).catch((err) => setError(String(err)));
   }
 
   useEffect(() => {
     refresh();
     api.accounts.list().then(setAccounts).catch((err) => setError(String(err)));
-    api.netWorth.get().then(setNetWorth).catch((err) => setError(String(err)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (error) return <Card>Couldn't load Looking Ahead: {error}</Card>;
